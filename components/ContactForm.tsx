@@ -9,6 +9,7 @@ type FormValues = {
   product: string;
   quantity: string;
   message: string;
+  agree: boolean;
 };
 
 export function ContactForm() {
@@ -25,6 +26,7 @@ export function ContactForm() {
       product: "keyring",
       quantity: "1-10",
       message: "",
+      agree: false,
     },
   });
 
@@ -47,6 +49,7 @@ export function ContactForm() {
       product: "keyring",
       quantity: "1-10",
       message: "",
+      agree: false,
     });
   };
 
@@ -158,6 +161,20 @@ export function ContactForm() {
           placeholder="推しの名前、カラーイメージ、参考画像URLなど"
           {...register("message")}
         />
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+        <label className="flex cursor-pointer items-start gap-3 text-xs leading-relaxed text-white/75">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-white/30 bg-transparent text-gold focus:ring-gold/60"
+            {...register("agree", { required: "ご利用ルール・免責事項への同意が必要です。" })}
+          />
+          <span>
+            ご利用ルール・免責事項（送料、納期、著作権責任）を読み、内容に同意します。
+          </span>
+        </label>
+        {errors.agree && <p className="mt-2 text-xs text-red-400">{errors.agree.message}</p>}
       </div>
 
       {submitError ? (

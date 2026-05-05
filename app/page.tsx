@@ -120,6 +120,45 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Rules */}
+      <section className="border-t border-white/10 bg-ink px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-center text-xl font-light tracking-[0.35em] text-white sm:text-2xl">
+            ご利用ルール・免責事項
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-xs leading-relaxed text-white/45">
+            お見積もり依頼の前に、以下の内容をご確認ください。
+          </p>
+          <div className="mt-10 space-y-4">
+            <article className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+              <h3 className="text-sm font-semibold tracking-wide text-gold">送料ルール（中国制作・日本直送）</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/75">
+                送料は数量に応じて変動します。MVP段階では、初期基準として
+                <span className="font-semibold text-white">「初重 1kg = 70元」</span>
+                で計算し、お見積もり時に最終確定します。
+              </p>
+            </article>
+            <article className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+              <h3 className="text-sm font-semibold tracking-wide text-gold">制作・発送スケジュール</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/75">
+                仕様確定後、
+                <span className="font-semibold text-white">制作 3〜5 営業日</span>、
+                <span className="font-semibold text-white">発送準備 5〜7 営業日</span>が目安です。
+                国際配送は物流業者の集荷後
+                <span className="font-semibold text-white">5〜7 日</span>程度でお届けします（日本の離島・遠隔地を除く）。
+              </p>
+            </article>
+            <article className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+              <h3 className="text-sm font-semibold tracking-wide text-gold">著作権・IP に関する責任範囲</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/75">
+                入稿画像・素材の著作権および使用許諾の確認は、お客様ご自身の責任でお願いいたします。
+                著作権・商標権・肖像権などの権利侵害に関する問題について、FUNDAMENTAL は責任を負いません。
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       {/* Contact */}
       <section id="contact" className="scroll-mt-20 border-t border-white/10 bg-ink px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-3xl">
