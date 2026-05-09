@@ -152,6 +152,29 @@ export default function IntegrationsBackofficePage() {
         {workerMsg ? <p className="mt-2 text-xs text-zinc-700">{workerMsg}</p> : null}
       </section>
 
+      <section className={`mt-5 p-4 ${boCard}`}>
+        <h2 className="text-sm font-bold text-zinc-900">失败处理操作指引（非技术）</h2>
+        <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-zinc-700">
+          <li>
+            先看任务表中状态为<span className="mx-1 rounded bg-red-50 px-1 py-0.5 text-red-800">失败/死信</span>的行，
+            重点关注“目标系统、事件、错误信息”。
+          </li>
+          <li>
+            如果是临时网络或接口抖动，点击该行“重试”；重试后再点“刷新列表”确认状态是否变成成功。
+          </li>
+          <li>
+            如果错误持续（同一任务多次失败），先去“订单台”核对订单号、收件信息、金额是否完整，再重试一次。
+          </li>
+          <li>
+            如果仍失败，把这三项发给技术同学：任务 ID、错误信息、requestId（可在接口日志中查）。
+          </li>
+          <li>
+            告警表出现<span className="mx-1 rounded bg-red-50 px-1 py-0.5 text-red-800">INTEGRATION_DEAD_LETTER</span>
+            时，代表已超过自动重试上限，需要人工确认后再操作“重试”。
+          </li>
+        </ol>
+      </section>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className={`overflow-x-auto ${boCard} p-0`}>
           <h2 className="border-b border-amber-100 bg-amber-50/50 px-4 py-2.5 text-sm font-bold text-zinc-900">

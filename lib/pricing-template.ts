@@ -22,6 +22,18 @@ export interface PricingResult {
   discount_percent: number;
 }
 
+export interface PricingExplain {
+  base_unit_price: number;
+  markup_percent: number;
+  marked_unit_price: number;
+  discount_percent: number;
+  final_unit_price: number;
+  qty: number;
+  shipping_fee: number;
+  total_amount: number;
+  matched_tier_min_qty: number | null;
+}
+
 const FILE = path.join(process.cwd(), ".fdm-pricing-template.json");
 
 export const DEFAULT_PRICING_TEMPLATE: PricingTemplate = {
@@ -93,5 +105,23 @@ export function calculatePricing(basePrice: number, qty: number, template: Prici
     total_amount: total,
     matched_tier_min_qty: matched?.min_qty ?? null,
     discount_percent: discountPercent,
+  };
+}
+
+export function explainPricing(basePrice: number, qty: number, template: PricingTemplate): PricingExplain {
+  const safeBase = Math.max(0, Math.round(basePrice));
+  const safeQty = Math.max(1, Math.floor(qty));
+  const marked = Math.round(safeBase * (1 + template.markup_percent / 100));
+  const result = calculatePricing(safeBase, safeQty, template);
+  return {
+    base_unit_price: safeBase,
+    markup_percent: template.markup_percent,
+    marked_unit_price: marked,
+    discount_percent: result.discount_percent,
+    final_unit_price: result.unit_price,
+    qty: safeQty,
+    shipping_fee: result.shipping_fee,
+    total_amount: result.total_amount,
+    matched_tier_min_qty: result.matched_tier_min_qty,
   };
 }

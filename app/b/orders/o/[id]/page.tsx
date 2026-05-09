@@ -6,6 +6,7 @@ import { InternalOrderOperationsPanel } from "@/components/InternalOrderOperatio
 import { orderStatusZh, workorderStatusZh } from "@/lib/backoffice-ui-labels";
 import { getOrder } from "@/lib/orders-store";
 import { listExceptionRequestsByOrder } from "@/lib/exception-requests-store";
+import { explainPricing, getPricingTemplate } from "@/lib/pricing-template";
 import { listShipmentEventsByOrder } from "@/lib/shipment-events-store";
 import { listSupportTicketsByOrder } from "@/lib/support-tickets-store";
 import { getWorkorder } from "@/lib/workorders-store";
@@ -24,6 +25,8 @@ export default async function InternalOrderOpsPage({
   if (!order) notFound();
 
   const product = products.find((p) => p.product_id === order.product_id);
+  const pricingTemplate = await getPricingTemplate();
+  const pricingExplain = explainPricing(product?.price_from ?? order.unit_price, order.qty, pricingTemplate);
   const workorder = await getWorkorder(order.workorder_id);
   const shipmentEvents = await listShipmentEventsByOrder(order.order_id);
   const supportTickets = await listSupportTicketsByOrder(order.order_id);
@@ -123,6 +126,27 @@ export default async function InternalOrderOpsPage({
               <div className="flex justify-between gap-4 border-b border-amber-50/80 py-1.5">
                 <dt className="text-zinc-500">金额</dt>
                 <dd className="tabular-nums font-medium">¥{order.total_amount.toLocaleString("zh-CN")}</dd>
+              </div>
+              <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2 text-xs">
+                <p className="font-semibold text-zinc-800">定价明细（运营）</p>
+                <p className="mt-1 text-zinc-700">
+                  基础单价 ¥{pricingExplain.base_unit_price.toLocaleString("zh-CN")}
+                  {pricingExplain.markup_percent !== 0
+                    ? ` → 加价 ${pricingExplain.markup_percent}% 后 ¥${pricingExplain.marked_unit_price.toLocaleString("zh-CN")}`
+                    : ""}
+                  {pricingExplain.discount_percent > 0
+                    ? ` → 阶梯折扣 ${pricingExplain.discount_percent}%（≥${pricingExplain.matched_tier_min_qty} 件）`
+                    : " → 阶梯折扣 0%"}
+                </p>
+                <p className="mt-1 text-zinc-700">
+                  实收单价 ¥{order.unit_price.toLocaleString("zh-CN")} × {order.qty} 件
+                  {order.shipping_fee > 0
+                    ? ` + 运费 ¥${order.shipping_fee.toLocaleString("zh-CN")}`
+                    : " + 运费 ¥0（包邮）"}
+                </p>
+                <p className="mt-1 font-medium text-zinc-900">
+                  实收总计：¥{order.total_amount.toLocaleString("zh-CN")}
+                </p>
               </div>
               <div className="flex justify-between gap-4 py-1.5">
                 <dt className="text-zinc-500">收件人</dt>
