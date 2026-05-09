@@ -1,5 +1,5 @@
 import { recordIntegrationAlert } from "@/lib/integration/alerts-store";
-import { executeCrmExceptionJob } from "@/lib/integration/adapters/crm";
+import { executeCrmExceptionJob, executeCrmOrderCreatedJob } from "@/lib/integration/adapters/crm";
 import { executeErpOutbound } from "@/lib/integration/adapters/erp";
 import {
   markJobFailed,
@@ -31,6 +31,8 @@ export async function runIntegrationWorker(limit: number): Promise<{
       } else if (job.target_system === "crm") {
         if (job.event_type === "crm.exception_updated") {
           await executeCrmExceptionJob(job.payload, job.request_id);
+        } else if (job.event_type === "crm.order_created") {
+          await executeCrmOrderCreatedJob(job.payload, job.request_id);
         } else {
           throw new Error(`unknown CRM event_type: ${job.event_type}`);
         }

@@ -89,6 +89,7 @@ export function targetSystemZh(s: string): string {
 export function integrationEventZh(eventType: string): string {
   const map: Record<string, string> = {
     "erp.order_created": "ERP · 建单",
+    "crm.order_created": "CRM · 订单入库",
     "crm.exception_updated": "CRM · 异常同步",
     "erp.exception_instruction": "ERP · 异常指令",
   };

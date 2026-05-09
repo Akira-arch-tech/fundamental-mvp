@@ -1,4 +1,5 @@
 import { getProductBySlug, products, topicOshi } from "@/data/seed";
+import { calculatePricing, getPricingTemplate } from "@/lib/pricing-template";
 import { getProductAiCoverMap } from "@/lib/product-ai-cover-store";
 import type { ProductCard, ProductDetail, SortKey } from "@/lib/types";
 
@@ -119,9 +120,20 @@ async function patchProductCardsWithAiCovers<T extends { product_id: string; cov
   });
 }
 
+async function patchProductCardsWithPricing<T extends { price_from: number; min_qty: number }>(
+  items: T[],
+): Promise<T[]> {
+  const template = await getPricingTemplate();
+  return items.map((c) => ({
+    ...c,
+    price_from: calculatePricing(c.price_from, c.min_qty || 1, template).unit_price,
+  }));
+}
+
 export async function listProductsMerged(params: ProductListParams) {
   const base = listProducts(params);
-  const items = await patchProductCardsWithAiCovers(base.items);
+  const withCovers = await patchProductCardsWithAiCovers(base.items);
+  const items = await patchProductCardsWithPricing(withCovers);
   return { ...base, items };
 }
 
@@ -130,18 +142,22 @@ export async function listTopicProductsMerged(
   params: Omit<ProductListParams, "category_ids"> & { category_ids?: string[] },
 ) {
   const base = listTopicProducts(topicId, params);
-  const items = await patchProductCardsWithAiCovers(base.items);
+  const withCovers = await patchProductCardsWithAiCovers(base.items);
+  const items = await patchProductCardsWithPricing(withCovers);
   return { ...base, items };
 }
 
 export async function getProductBySlugMerged(slug: string): Promise<ProductDetail | undefined> {
   const p = getProductBySlug(slug);
   if (!p) return undefined;
+  const template = await getPricingTemplate();
+  const priced = calculatePricing(p.price_from, p.min_qty || 1, template);
   const map = await getProductAiCoverMap();
   const url = map[p.product_id];
-  if (!url) return p;
+  if (!url) return { ...p, price_from: priced.unit_price };
   return {
     ...p,
+    price_from: priced.unit_price,
     cover_url: url,
     gallery: p.gallery.length ? [url, ...p.gallery.slice(1)] : [url],
   };
@@ -150,11 +166,14 @@ export async function getProductBySlugMerged(slug: string): Promise<ProductDetai
 export async function getProductByIdMerged(productId: string): Promise<ProductDetail | undefined> {
   const p = products.find((x) => x.product_id === productId);
   if (!p) return undefined;
+  const template = await getPricingTemplate();
+  const priced = calculatePricing(p.price_from, p.min_qty || 1, template);
   const map = await getProductAiCoverMap();
   const url = map[p.product_id];
-  if (!url) return p;
+  if (!url) return { ...p, price_from: priced.unit_price };
   return {
     ...p,
+    price_from: priced.unit_price,
     cover_url: url,
     gallery: p.gallery.length ? [url, ...p.gallery.slice(1)] : [url],
   };

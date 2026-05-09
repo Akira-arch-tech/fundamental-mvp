@@ -10,6 +10,7 @@ import {
   updateOrderNote as updateOrderNoteInDb,
   updateOrderStatus as updateOrderStatusInDb,
 } from "@/lib/db/orders-repository";
+import { calculatePricing, getPricingTemplate } from "@/lib/pricing-template";
 import { addShipmentEvent } from "@/lib/shipment-events-store";
 import { createWorkorder } from "@/lib/workorders-store";
 import type { OrderCreateInput, OrderRecord } from "@/lib/types";
@@ -58,9 +59,9 @@ async function ensureOrderHydratedFile(order: OrderRecord): Promise<OrderRecord>
 
 export async function saveOrder(input: OrderCreateInput): Promise<OrderRecord> {
   const product = products.find((p) => p.product_id === input.product_id);
-  const unitPrice = product?.price_from ?? 0;
-  const shippingFee = input.qty >= 5 ? 0 : 500;
-  const totalAmount = unitPrice * input.qty + shippingFee;
+  const basePrice = product?.price_from ?? 0;
+  const pricingTemplate = await getPricingTemplate();
+  const pricing = calculatePricing(basePrice, input.qty, pricingTemplate);
   const order_id = newOrderId();
   const workorder = await createWorkorder(order_id);
 
@@ -77,9 +78,9 @@ export async function saveOrder(input: OrderCreateInput): Promise<OrderRecord> {
     order_no: newOrderNo(),
     status: "created",
     workorder_id: workorder.workorder_id,
-    unit_price: unitPrice,
-    shipping_fee: shippingFee,
-    total_amount: totalAmount,
+    unit_price: pricing.unit_price,
+    shipping_fee: pricing.shipping_fee,
+    total_amount: pricing.total_amount,
     created_at: new Date().toISOString(),
   };
 

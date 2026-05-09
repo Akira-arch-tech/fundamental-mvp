@@ -95,6 +95,19 @@ export async function POST(req: Request) {
           idempotency_key: `erp:order:${order.order_id}`,
           request_id: requestId,
         });
+        await enqueueIntegrationJob({
+          target_system: "crm",
+          event_type: "crm.order_created",
+          payload: {
+            order_id: order.order_id,
+            order_no: order.order_no,
+            product_id: order.product_id,
+            qty: order.qty,
+            total_amount: order.total_amount,
+          },
+          idempotency_key: `crm:order:${order.order_id}`,
+          request_id: requestId,
+        });
       }
       await runIntegrationWorker(16);
     });
