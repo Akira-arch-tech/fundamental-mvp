@@ -1,0 +1,9 @@
+<svg width="800" height="800" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="800" fill="#fafafa"/>
+  <rect x="120" y="120" width="560" height="560" rx="26" fill="#fff" stroke="#e4e4e7"/>
+  <rect x="320" y="190" width="160" height="310" rx="24" fill="#dcfce7" stroke="#16a34a" stroke-width="4"/>
+  <rect x="286" y="520" width="228" height="74" rx="18" fill="#bbf7d0" stroke="#16a34a" stroke-width="4"/>
+  <rect x="342" y="240" width="116" height="230" rx="16" fill="#fff" fill-opacity="0.5"/>
+  <rect x="220" y="590" width="360" height="34" rx="17" fill="#111827"/>
+  <text x="400" y="613" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">アクリルスタンド / 台座付き</text>
+</svg>
