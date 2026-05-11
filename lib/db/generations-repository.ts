@@ -1,7 +1,54 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "@/lib/db/client";
 import { generations } from "@/lib/db/schema";
 import type { GenerationRecord } from "@/lib/image-generation/types";
+
+const globalForGenerationsRepo = globalThis as unknown as {
+  fdmGenerationTableEnsured?: Promise<void>;
+};
+
+async function ensureGenerationsTable(db: DrizzleDb): Promise<void> {
+  if (!globalForGenerationsRepo.fdmGenerationTableEnsured) {
+    globalForGenerationsRepo.fdmGenerationTableEnsured = (async () => {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS generations (
+          generation_id text PRIMARY KEY,
+          store_id text NOT NULL,
+          product_id text,
+          user_id text,
+          mode text NOT NULL,
+          prompt text NOT NULL,
+          negative_prompt text,
+          style_preset_id text,
+          reference_asset_ids jsonb NOT NULL,
+          provider text NOT NULL,
+          model text NOT NULL,
+          request_id text NOT NULL,
+          provider_request_id text,
+          status text NOT NULL,
+          outputs jsonb NOT NULL,
+          error_code text,
+          message text,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+      `);
+      await db.execute(
+        sql`CREATE INDEX IF NOT EXISTS generations_created_idx ON generations(created_at);`,
+      );
+      await db.execute(
+        sql`CREATE INDEX IF NOT EXISTS generations_store_created_idx ON generations(store_id, created_at);`,
+      );
+      await db.execute(
+        sql`CREATE INDEX IF NOT EXISTS generations_request_id_idx ON generations(request_id);`,
+      );
+      await db.execute(
+        sql`CREATE INDEX IF NOT EXISTS generations_status_idx ON generations(status);`,
+      );
+    })();
+  }
+  await globalForGenerationsRepo.fdmGenerationTableEnsured;
+}
 
 function rowToRecord(row: typeof generations.$inferSelect): GenerationRecord {
   return {
@@ -28,6 +75,7 @@ function rowToRecord(row: typeof generations.$inferSelect): GenerationRecord {
 }
 
 export async function insertGenerationRecord(db: DrizzleDb, rec: GenerationRecord): Promise<void> {
+  await ensureGenerationsTable(db);
   await db.insert(generations).values({
     generationId: rec.generation_id,
     storeId: rec.store_id,
@@ -61,6 +109,7 @@ export async function updateGenerationRecord(
     >
   >,
 ): Promise<GenerationRecord | null> {
+  await ensureGenerationsTable(db);
   const rows = await db
     .update(generations)
     .set({
@@ -80,6 +129,7 @@ export async function selectGenerationById(
   db: DrizzleDb,
   generationId: string,
 ): Promise<GenerationRecord | null> {
+  await ensureGenerationsTable(db);
   const [row] = await db
     .select()
     .from(generations)
@@ -89,6 +139,7 @@ export async function selectGenerationById(
 }
 
 export async function listGenerationRecords(db: DrizzleDb, limit: number): Promise<GenerationRecord[]> {
+  await ensureGenerationsTable(db);
   const rows = await db
     .select()
     .from(generations)
