@@ -101,7 +101,7 @@ export function ContactForm() {
           type="email"
           autoComplete="email"
           className="w-full rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none ring-gold/30 placeholder:text-white/25 focus:border-gold/50 focus:ring-2"
-          placeholder="example@email.com"
+          placeholder="メールアドレスを入力してください"
           {...register("email", { required: "メールアドレスを入力してください" })}
         />
         {errors.email && (
@@ -158,7 +158,7 @@ export function ContactForm() {
           id="message"
           rows={5}
           className="w-full resize-y rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none ring-gold/30 placeholder:text-white/30 focus:border-gold/50 focus:ring-2"
-          placeholder="推しの名前、カラーイメージ、参考画像URLなど"
+          placeholder="推しの名前、カラーイメージ、参考画像リンクなど"
           {...register("message")}
         />
       </div>

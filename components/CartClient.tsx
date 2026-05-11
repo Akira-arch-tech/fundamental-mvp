@@ -119,7 +119,7 @@ export function CartClient({ initialItems }: { initialItems: CartItemRecord[] })
           >
             <p className="text-sm font-semibold text-zinc-900">{item.product_title}</p>
             <p className="mt-1 text-xs text-zinc-500">
-              SKU: {item.source_sku_code ?? "未設定"} · 追加元：
+              商品コード: {item.source_sku_code ?? "未設定"} · 追加元：
               {item.added_from === "customize" ? "デザインエディタ" : "商品ページ"}
             </p>
             {item.selected_specs.length > 0 ? (
@@ -128,7 +128,7 @@ export function CartClient({ initialItems }: { initialItems: CartItemRecord[] })
               </p>
             ) : null}
             {item.customization_id ? (
-              <p className="mt-1 text-xs text-zinc-500">customization: {item.customization_id}</p>
+              <p className="mt-1 text-xs text-zinc-500">カスタマイズID: {item.customization_id}</p>
             ) : null}
             <div className="mt-3 flex items-center gap-3">
               <input

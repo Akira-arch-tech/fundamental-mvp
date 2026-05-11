@@ -48,7 +48,7 @@ export function ProductCard({ p }: { p: PC }) {
             ¥{Math.round(originalPrice).toLocaleString("ja-JP")}
           </p>
         </div>
-        <p className="text-[11px] text-zinc-500">coin獲得予定({promo.coin}%)</p>
+        <p className="text-[11px] text-zinc-500">ポイント獲得予定({promo.coin}%)</p>
         <p className="text-xs text-zinc-500">納期目安 {p.lead_time_days}日 · 最低{p.min_qty}点〜</p>
       </div>
     </Link>

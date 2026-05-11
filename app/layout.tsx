@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "FUNDAMENTAL — カスタムグッズストア",
   description:
-    "推し活向けカスタムグッズストアのプロダクトデモ（买家店日语 / 管理后台中文）",
+    "推し活向けカスタムグッズストアのデモサイトです。",
 };
 
 export default function RootLayout({

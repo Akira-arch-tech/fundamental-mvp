@@ -202,7 +202,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
               disabled={adding}
               className="inline-flex h-9 items-center justify-center rounded-full border border-zinc-300 px-4 text-xs font-semibold text-zinc-700 hover:border-zinc-400 disabled:opacity-50"
             >
-              {adding ? "追加中..." : "SKUでカート追加"}
+              {adding ? "追加中..." : "カートに追加"}
             </button>
             <Link href="/cart" className="text-xs text-[#e85c22] hover:underline">
               カートを見る
@@ -232,7 +232,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
 
         {product.faq.length > 0 ? (
           <section>
-            <h2 className="mb-2 text-sm font-bold text-zinc-800">FAQ</h2>
+            <h2 className="mb-2 text-sm font-bold text-zinc-800">よくある質問</h2>
             <div className="space-y-2">
               {product.faq.map((f, i) => (
                 <details

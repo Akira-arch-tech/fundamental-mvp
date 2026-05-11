@@ -79,7 +79,7 @@ export function CheckoutSuccessClient({
   if (loading) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center text-sm text-zinc-600">
-        Stripe 決済を確認しています…
+        決済結果を確認しています…
       </div>
     );
   }
@@ -88,7 +88,7 @@ export function CheckoutSuccessClient({
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <p className="text-red-600">{error}</p>
-        <p className="mt-2 text-xs text-zinc-500">Webhook 経由で既に注文が作成されている場合、注文一覧からお探しください。</p>
+        <p className="mt-2 text-xs text-zinc-500">すでに注文が作成済みの場合は、注文一覧からご確認ください。</p>
         <Link href="/orders" className="mt-4 inline-block text-sm text-[#e85c22] hover:underline">
           注文を検索 →
         </Link>
@@ -101,17 +101,17 @@ export function CheckoutSuccessClient({
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
       <h1 className="text-xl font-bold text-zinc-900">お支払い完了</h1>
-      <p className="mt-2 text-sm text-zinc-600">注文を受け付けました（PRD §8.5 / Stripe）。</p>
+      <p className="mt-2 text-sm text-zinc-600">注文を受け付けました。</p>
       <div className="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-800">
         <p>
           注文番号：<span className="font-mono">{result.order_no}</span>
         </p>
         <p className="mt-1">ステータス：{result.status}</p>
-        <p className="mt-1">合計（JPY）：{formatJpy(result.total_amount)}</p>
+        <p className="mt-1">合計（円）：{formatJpy(result.total_amount)}</p>
         {displayCurrency === "KRW" ? (
-          <p className="mt-0.5 text-zinc-600">参考 KRW：{formatKrwRef(result.total_amount)}</p>
+          <p className="mt-0.5 text-zinc-600">参考（ウォン）：{formatKrwRef(result.total_amount)}</p>
         ) : null}
-        <p className="mt-1 font-mono text-[10px] text-zinc-500">requestId: {result.requestId}</p>
+        <p className="mt-1 font-mono text-[10px] text-zinc-500">問い合わせID: {result.requestId}</p>
       </div>
       <Link
         href={`/orders/${result.order_id}`}

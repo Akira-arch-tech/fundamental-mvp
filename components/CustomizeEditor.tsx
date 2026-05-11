@@ -345,14 +345,14 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       };
       setAiRequestId(json.requestId ?? "");
       if (!res.ok || !json.generation) {
-        throw new Error(`${json.code ?? "ERROR"}: ${json.message ?? "AI 生成失败"}`);
+        throw new Error(`${json.code ?? "エラー"}: ${json.message ?? "AI画像の生成に失敗しました"}`);
       }
       setAiLastGeneration(json.generation);
       if (json.generation.status !== "success" || json.generation.outputs.length === 0) {
-        throw new Error(json.generation.message ?? "AI 生成未返回图片");
+        throw new Error(json.generation.message ?? "AI画像が生成されませんでした");
       }
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : "AI 生成失败");
+      setAiError(e instanceof Error ? e.message : "AI画像の生成に失敗しました");
     } finally {
       setAiLoading(false);
     }
@@ -364,7 +364,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     const newLayer: ImageLayer = {
       id,
       type: "image",
-      name: `AI-${aiMode}`,
+      name: `AI画像-${aiMode}`,
       dataUrl: imageUrl,
       locked: false,
       x: 0,
@@ -746,7 +746,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   async function onAddToCart() {
     if (!saved) return;
     if (dpiBlocksProduction) {
-      setCartMsg("推定 DPI が 200 未満のため、カートに入れません（PRD §8.2）。スライダーで解像度を上げてください。");
+      setCartMsg("推定解像度が 200 未満のため、カートに入れません（PRD §8.2）。スライダーで解像度を上げてください。");
       return;
     }
     setAddingToCart(true);
@@ -934,7 +934,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         </p>
         {dpiBlocksProduction ? (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
-            推定 DPI が 200 未満のため、カート追加と注文へ進むをブロックしています。
+            推定解像度が 200 未満のため、カート追加と注文へ進むをブロックしています。
           </p>
         ) : null}
       </section>
@@ -1045,46 +1045,46 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         </label>
 
         <div className="rounded-lg border border-orange-200 bg-orange-50/40 p-3">
-          <p className="mb-2 text-sm font-semibold text-zinc-900">AI 生图（MVP）</p>
+          <p className="mb-2 text-sm font-semibold text-zinc-900">AI画像生成（ベータ版）</p>
           <div className="mb-2 grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setAiMode("t2i")}
               className={`rounded border px-2 py-1 text-xs ${aiMode === "t2i" ? "border-[#e85c22] bg-[#e85c22] text-white" : "border-zinc-300 bg-white"}`}
             >
-              文生图
+              テキスト生成
             </button>
             <button
               type="button"
               onClick={() => setAiMode("i2i")}
               className={`rounded border px-2 py-1 text-xs ${aiMode === "i2i" ? "border-[#e85c22] bg-[#e85c22] text-white" : "border-zinc-300 bg-white"}`}
             >
-              图生图
+              画像参照生成
             </button>
             <button
               type="button"
               onClick={() => setAiMode("multi_ref")}
               className={`rounded border px-2 py-1 text-xs ${aiMode === "multi_ref" ? "border-[#e85c22] bg-[#e85c22] text-white" : "border-zinc-300 bg-white"}`}
             >
-              多图融合
+              複数画像生成
             </button>
           </div>
           <label className="mb-2 block">
-            <span className="mb-1 block text-xs text-zinc-700">Prompt</span>
+            <span className="mb-1 block text-xs text-zinc-700">プロンプト</span>
             <input
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               className="w-full rounded border border-zinc-300 px-2 py-1.5 text-xs"
-              placeholder="输入你希望生成的画面描述"
+              placeholder="生成したい画像の内容を入力してください"
             />
           </label>
           <label className="mb-2 block">
-            <span className="mb-1 block text-xs text-zinc-700">参考图 URL/ID（逗号分隔）</span>
+            <span className="mb-1 block text-xs text-zinc-700">参照画像リンク／識別子（カンマ区切り）</span>
             <input
               value={aiRefsRaw}
               onChange={(e) => setAiRefsRaw(e.target.value)}
               className="w-full rounded border border-zinc-300 px-2 py-1.5 text-xs"
-              placeholder={aiMode === "t2i" ? "文生图可留空" : "https://... 或 picsum:10,picsum:20"}
+              placeholder={aiMode === "t2i" ? "テキスト生成では空欄可" : "https://... または picsum:10,picsum:20"}
             />
           </label>
           <button
@@ -1093,9 +1093,9 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             disabled={aiLoading}
             className="inline-flex h-9 w-full items-center justify-center rounded-full bg-[#e85c22] text-xs font-semibold text-white hover:bg-[#d14f1b] disabled:opacity-60"
           >
-            {aiLoading ? "生成中…" : "生成 AI 图片"}
+            {aiLoading ? "生成中…" : "AI画像を生成"}
           </button>
-          {aiRequestId ? <p className="mt-1 text-[11px] text-zinc-500">requestId: {aiRequestId}</p> : null}
+          {aiRequestId ? <p className="mt-1 text-[11px] text-zinc-500">問い合わせID: {aiRequestId}</p> : null}
           {aiError ? <p className="mt-1 text-xs text-red-600">{aiError}</p> : null}
 
           {aiLastGeneration?.outputs?.length ? (
@@ -1108,7 +1108,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                     onClick={() => void onUseAiOutput(output.image_url)}
                     className="w-full border-t border-zinc-200 px-2 py-1.5 text-xs font-semibold text-[#e85c22] hover:bg-orange-50"
                   >
-                    一键放入画布
+                    キャンバスに追加
                   </button>
                 </div>
               ))}
@@ -1235,7 +1235,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-zinc-700">
-            推定DPI（印刷の解像度目安）
+            推定解像度（印刷の目安）
           </span>
           <input
             type="range"
@@ -1246,7 +1246,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             onChange={(e) => setEstimatedDpi(Number(e.target.value))}
             className="w-full"
           />
-          <span className="text-xs text-zinc-500">{estimatedDpi} DPI</span>
+          <span className="text-xs text-zinc-500">{estimatedDpi}</span>
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-zinc-700">点数</span>
@@ -1272,7 +1272,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           onClick={exportPrintDraftJson}
           className="inline-flex h-11 w-full items-center justify-center rounded-full border border-zinc-300 text-sm font-semibold text-zinc-700 hover:border-zinc-400"
         >
-          印刷用データをJSONで出力
+          印刷用データを出力
         </button>
 
         {error ? (
@@ -1282,14 +1282,14 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         {saved ? (
           <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
             <p>
-              customization_id:{" "}
+              カスタマイズID:{" "}
               <span className="font-mono">{saved.customization_id}</span>
             </p>
             <p>
-              requestId: <span className="font-mono">{saved.requestId}</span>
+              問い合わせID: <span className="font-mono">{saved.requestId}</span>
             </p>
             <p className={dpiTone}>
-              DPI: {saved.dpi_check_result.estimated_dpi} / 推奨{" "}
+              解像度: {saved.dpi_check_result.estimated_dpi} / 推奨{" "}
               {saved.dpi_check_result.min_recommended_dpi}
             </p>
             <p>{saved.dpi_check_result.message}</p>
@@ -1310,7 +1310,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             </a>
             <br />
             {dpiBlocksProduction ? (
-              <span className="inline-block text-xs text-red-600">注文へ進む（DPI 不足のため停止）</span>
+              <span className="inline-block text-xs text-red-600">注文へ進む（解像度不足のため停止）</span>
             ) : (
               <Link
                 href={`/checkout?customization_id=${saved.customization_id}`}

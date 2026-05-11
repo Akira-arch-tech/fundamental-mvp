@@ -119,7 +119,7 @@ export function CheckoutClient({
         </p>
         {displayCurrency === "KRW" ? (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">
-            PRD §8.5 / 店铺设置：标价展示 KRW（参考 {JPY_TO_KRW_DISPLAY}）。订单金额仍以 JPY 存储。
+            表示通貨はウォン換算の参考表示です（換算係数 {JPY_TO_KRW_DISPLAY}）。ご注文金額は円で確定します。
           </p>
         ) : null}
 
@@ -136,7 +136,7 @@ export function CheckoutClient({
               />
               <span>
                 <span className="font-medium text-zinc-900">デモ決済（即時完了）</span>
-                <span className="mt-0.5 block text-xs text-zinc-500">MVP 演示用。本番接 Stripe 等。</span>
+                <span className="mt-0.5 block text-xs text-zinc-500">デモ用の決済方式です。</span>
               </span>
             </label>
             {stripeEnabled ? (
@@ -149,16 +149,15 @@ export function CheckoutClient({
                   className="mt-1"
                 />
                 <span>
-                  <span className="font-medium text-zinc-900">Stripe（テスト / 本番キー接続時）</span>
+                  <span className="font-medium text-zinc-900">Stripe決済（テスト／本番キー接続時）</span>
                   <span className="mt-0.5 block text-xs text-zinc-500">
-                    JPY・国際カード。Kakao Pay 等の現地ウォレットは別途 Dashboard 有効化 + 通貨設計が必要（調査稿参照）。
+                    円建てのカード決済です。地域ウォレットは別途設定が必要です。
                   </span>
                 </span>
               </label>
             ) : (
               <p className="mt-2 rounded-md bg-zinc-100 px-2 py-2 text-xs text-zinc-600">
-                Stripe テスト：リポジトリの <code className="font-mono">.env</code> に{" "}
-                <code className="font-mono">STRIPE_SECRET_KEY</code> を設定すると上記の「Stripe」支払いが表示されます。
+                Stripe決済は現在無効です。設定後に表示されます。
               </p>
             )}
           </fieldset>
@@ -236,10 +235,10 @@ export function CheckoutClient({
         >
           {loading
             ? paymentMethod === "stripe"
-              ? "Stripe へ遷移中..."
+              ? "決済ページへ移動中..."
               : "注文送信中..."
             : paymentMethod === "stripe"
-              ? "Stripe で支払う"
+              ? "カードで支払う"
               : "注文を確定する"}
         </button>
 
@@ -251,11 +250,11 @@ export function CheckoutClient({
               注文番号：<span className="font-mono">{result.order_no}</span>
             </p>
             <p className="mt-1">ステータス：{result.status}</p>
-            <p className="mt-1">お支払い合計（JPY）：{formatJpy(result.total_amount)}</p>
+            <p className="mt-1">お支払い合計（円）：{formatJpy(result.total_amount)}</p>
             {displayCurrency === "KRW" ? (
-              <p className="mt-0.5 text-zinc-600">参考 KRW：{formatKrwRef(result.total_amount)}</p>
+              <p className="mt-0.5 text-zinc-600">参考（ウォン）：{formatKrwRef(result.total_amount)}</p>
             ) : null}
-            <p className="mt-1 font-mono text-[10px] text-zinc-500">requestId: {result.requestId}</p>
+            <p className="mt-1 font-mono text-[10px] text-zinc-500">問い合わせID: {result.requestId}</p>
             <Link
               href={`/orders/${result.order_id}`}
               className="mt-2 inline-block text-sm font-medium text-[#e85c22] underline"
