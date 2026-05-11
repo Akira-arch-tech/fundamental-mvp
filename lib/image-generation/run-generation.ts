@@ -1,6 +1,11 @@
 import { newRequestId } from "@/lib/request-id";
 import { resolveReferenceUrls } from "@/lib/image-generation/asset-resolver";
-import { shouldUseMockImageGeneration, getDemoStoreId, getMultiRefMax } from "@/lib/image-generation/config";
+import {
+  shouldUseMockImageGeneration,
+  getDemoStoreId,
+  getMultiRefMax,
+  shouldPersistGeneration,
+} from "@/lib/image-generation/config";
 import { pickModelForMode, runDashScopeGeneration } from "@/lib/image-generation/dashscope-adapter";
 import { getGeneration, insertGeneration, updateGeneration } from "@/lib/image-generation/generation-store";
 import { runMockGeneration } from "@/lib/image-generation/mock-generation";
@@ -57,6 +62,7 @@ export async function executeGenerationPipeline(input: {
   const requestId = newRequestId();
   const generationId = newGenerationId();
   const useMock = shouldUseMockImageGeneration();
+  const shouldPersist = shouldPersistGeneration();
   const model = pickModelForMode(mode, input.body.model);
 
   const base: GenerationRecord = {
@@ -81,7 +87,9 @@ export async function executeGenerationPipeline(input: {
     updated_at: new Date().toISOString(),
   };
 
-  await insertGeneration(base);
+  if (shouldPersist) {
+    await insertGeneration(base);
+  }
 
   try {
     let outputs: GenerationOutput[];
@@ -112,12 +120,21 @@ export async function executeGenerationPipeline(input: {
       }));
     }
 
-    const done = await updateGeneration(generationId, {
+    if (shouldPersist) {
+      const done = await updateGeneration(generationId, {
+        status: "success",
+        outputs,
+        provider_request_id: providerRequestId,
+      });
+      return done ?? { ...base, status: "success", outputs, provider_request_id: providerRequestId };
+    }
+    return {
+      ...base,
       status: "success",
       outputs,
       provider_request_id: providerRequestId,
-    });
-    return done ?? { ...base, status: "success", outputs, provider_request_id: providerRequestId };
+      updated_at: new Date().toISOString(),
+    };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     let code =
@@ -128,12 +145,21 @@ export async function executeGenerationPipeline(input: {
     const prov = /^([^:]+):(.+)$/.exec(msg);
     if (prov && !msg.startsWith("ASSET_")) code = prov[1];
     if (msg.includes("InvalidApiKey")) code = "PROVIDER_AUTH";
-    await updateGeneration(generationId, {
+    if (shouldPersist) {
+      await updateGeneration(generationId, {
+        status: "failed",
+        error_code: code,
+        message: msg.slice(0, 2000),
+      });
+      const failed = await getGeneration(generationId);
+      return failed ?? { ...base, status: "failed", error_code: code, message: msg };
+    }
+    return {
+      ...base,
       status: "failed",
       error_code: code,
       message: msg.slice(0, 2000),
-    });
-    const failed = await getGeneration(generationId);
-    return failed ?? { ...base, status: "failed", error_code: code, message: msg };
+      updated_at: new Date().toISOString(),
+    };
   }
 }

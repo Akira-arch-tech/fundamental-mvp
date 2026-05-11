@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { newRequestId } from "@/lib/request-id";
 import { getAuthedUser } from "@/lib/server-auth";
+import { shouldPersistGeneration } from "@/lib/image-generation/config";
 import { listGenerations } from "@/lib/image-generation/generation-store";
 import { executeGenerationPipeline, validateCreateBody } from "@/lib/image-generation/run-generation";
 import type { CreateGenerationBody } from "@/lib/image-generation/types";
@@ -16,6 +17,9 @@ export async function GET(req: Request) {
   }
   const url = new URL(req.url);
   const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 20, 1), 100);
+  if (!shouldPersistGeneration()) {
+    return NextResponse.json({ items: [], requestId }, { headers: { "X-Request-Id": requestId } });
+  }
   const items = await listGenerations(limit);
   return NextResponse.json({ items, requestId }, { headers: { "X-Request-Id": requestId } });
 }

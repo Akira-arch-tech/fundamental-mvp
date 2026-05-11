@@ -43,3 +43,12 @@ export function getDashScopeTimeoutMs(): number {
 export function getDemoStoreId(): string {
   return process.env.FUNDAMENTAL_DEMO_STORE_ID?.trim() || "store-demo";
 }
+
+/**
+ * 轻 MVP 模式默认不做持久化，避免 Serverless 只读文件系统导致 EROFS。
+ * 如需恢复持久化，可设置 IMAGE_GENERATION_PERSIST=true。
+ */
+export function shouldPersistGeneration(): boolean {
+  const raw = process.env.IMAGE_GENERATION_PERSIST?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}

@@ -17,6 +17,12 @@ export function StoreSiteHeader({ storeName, locale }: StoreSiteHeaderProps) {
           <span className="hidden text-xs text-zinc-500 sm:inline">{tagline}</span>
         </Link>
         <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium text-zinc-700">
+          <Link
+            href="/ja#inquiry"
+            className="inline-flex items-center rounded-full bg-[#e85c22] px-3 py-1 text-xs font-semibold text-white transition hover:bg-[#d14f1c] sm:text-sm"
+          >
+            お問い合わせはこちら
+          </Link>
           <Link href="/favorite" className="hover:text-[#e85c22]">
             推し活
           </Link>

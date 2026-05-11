@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type GenerationMode = "t2i" | "i2i" | "multi_ref";
@@ -64,10 +64,6 @@ export default function BackofficeGenerationsPage() {
     setRequestId(json.requestId ?? "");
   }, [router]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   async function onRefresh() {
     setRefreshing(true);
     setError("");
@@ -117,8 +113,11 @@ export default function BackofficeGenerationsPage() {
         return;
       }
       setRequestId(json.requestId ?? "");
-      setMsg(`已创建任务：${json.generation?.generation_id ?? "—"}（${json.generation?.provider ?? "—"}）`);
-      await load();
+      const current = json.generation;
+      if (current) {
+        setItems((prev) => [current, ...prev.filter((x) => x.generation_id !== current.generation_id)].slice(0, 20));
+      }
+      setMsg(`本次生成完成：${current?.generation_id ?? "—"}（${current?.provider ?? "—"}）`);
     } finally {
       setLoading(false);
     }
@@ -131,7 +130,7 @@ export default function BackofficeGenerationsPage() {
           <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800/70">AIGC</p>
           <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">生图网关测试台</h1>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-zinc-600">
-            用同一入口测试 T2I / I2I / Multi-ref。未配置 DashScope Key 时会自动走 Mock。
+            用同一入口测试 T2I / I2I / Multi-ref。轻 MVP 模式优先展示本次结果，不依赖服务端持久化。
           </p>
         </div>
         <button
