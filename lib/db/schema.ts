@@ -124,3 +124,37 @@ export const crmTimelineEntries = pgTable(
   },
   (t) => [index("crm_order_no_idx").on(t.orderNo), index("crm_created_idx").on(t.createdAt)],
 );
+
+/** AIGC 生图任务（PRD §8.4.1） */
+export const generations = pgTable(
+  "generations",
+  {
+    generationId: text("generation_id").primaryKey(),
+    storeId: text("store_id").notNull(),
+    productId: text("product_id"),
+    userId: text("user_id"),
+    mode: text("mode").notNull(),
+    prompt: text("prompt").notNull(),
+    negativePrompt: text("negative_prompt"),
+    stylePresetId: text("style_preset_id"),
+    referenceAssetIds: jsonb("reference_asset_ids").$type<string[]>().notNull(),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    requestId: text("request_id").notNull(),
+    providerRequestId: text("provider_request_id"),
+    status: text("status").notNull(),
+    outputs: jsonb("outputs")
+      .$type<Array<{ image_url: string; width: number | null; height: number | null; created_at: string }>>()
+      .notNull(),
+    errorCode: text("error_code"),
+    message: text("message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("generations_created_idx").on(t.createdAt),
+    index("generations_store_created_idx").on(t.storeId, t.createdAt),
+    index("generations_request_id_idx").on(t.requestId),
+    index("generations_status_idx").on(t.status),
+  ],
+);
