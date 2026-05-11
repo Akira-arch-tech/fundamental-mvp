@@ -19,6 +19,20 @@ interface SaveResult {
   requestId: string;
 }
 
+type GenerationMode = "t2i" | "i2i" | "multi_ref";
+
+interface AiGenerationResult {
+  generation_id: string;
+  mode: GenerationMode;
+  status: "queued" | "running" | "success" | "failed";
+  provider: "dashscope" | "mock";
+  model: string;
+  request_id: string;
+  outputs: Array<{ image_url: string; width: number | null; height: number | null; created_at: string }>;
+  error_code: string | null;
+  message: string | null;
+}
+
 type LayerType = "image" | "text";
 
 interface BaseLayer {
@@ -129,6 +143,13 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [error, setError] = useState("");
   const [cartMsg, setCartMsg] = useState("");
   const [saved, setSaved] = useState<SaveResult | null>(null);
+  const [aiMode, setAiMode] = useState<GenerationMode>("t2i");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiRefsRaw, setAiRefsRaw] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiRequestId, setAiRequestId] = useState("");
+  const [aiLastGeneration, setAiLastGeneration] = useState<AiGenerationResult | null>(null);
 
   const selectedLayer = useMemo(
     () => layers.find((layer) => layer.id === selectedLayerId) ?? null,
@@ -137,6 +158,14 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const textLayer = useMemo(
     () => layers.find((layer): layer is TextLayer => layer.type === "text"),
     [layers],
+  );
+  const aiRefs = useMemo(
+    () =>
+      aiRefsRaw
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    [aiRefsRaw],
   );
 
   function pushHistorySnapshot(prevLayers: CanvasLayer[], prevSelected: string | null) {
@@ -285,6 +314,68 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       setSelectedLayerIds([id]);
     };
     reader.readAsDataURL(file);
+  }
+
+  async function onGenerateAi() {
+    setAiLoading(true);
+    setAiError("");
+    setAiLastGeneration(null);
+    try {
+      const body: {
+        mode: GenerationMode;
+        prompt: string;
+        reference_asset_ids?: string[];
+      } = {
+        mode: aiMode,
+        prompt: aiPrompt.trim() || `${product.title} のデザイン案`,
+      };
+      if (aiRefs.length > 0) {
+        body.reference_asset_ids = aiRefs;
+      }
+      const res = await fetch("/api/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json()) as {
+        generation?: AiGenerationResult;
+        requestId?: string;
+        code?: string;
+        message?: string;
+      };
+      setAiRequestId(json.requestId ?? "");
+      if (!res.ok || !json.generation) {
+        throw new Error(`${json.code ?? "ERROR"}: ${json.message ?? "AI 生成失败"}`);
+      }
+      setAiLastGeneration(json.generation);
+      if (json.generation.status !== "success" || json.generation.outputs.length === 0) {
+        throw new Error(json.generation.message ?? "AI 生成未返回图片");
+      }
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "AI 生成失败");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function onUseAiOutput(imageUrl: string) {
+    setAiError("");
+    const id = `layer_ai_${Date.now()}`;
+    const newLayer: ImageLayer = {
+      id,
+      type: "image",
+      name: `AI-${aiMode}`,
+      dataUrl: imageUrl,
+      locked: false,
+      x: 0,
+      y: 0,
+      scaleX: 1,
+      scaleY: 1,
+      rotate: 0,
+    };
+    updateEditor((prev) => [newLayer, ...prev]);
+    setSelectedLayerId(id);
+    setSelectedLayerIds([id]);
   }
 
   function onLayerPointerDown(e: React.PointerEvent<HTMLDivElement>, layer: CanvasLayer) {
@@ -742,13 +833,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                     }}
                     onPointerDown={(e) => onLayerPointerDown(e, layer)}
                   >
-                    <Image
-                      src={layer.dataUrl}
-                      alt={layer.name}
-                      fill
-                      className="object-contain p-6"
-                      sizes="(max-width:768px) 100vw, 520px"
-                    />
+                    <img src={layer.dataUrl} alt={layer.name} className="h-full w-full object-contain p-6" />
                   </div>
                 );
               }
@@ -958,6 +1043,78 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             <span className="mt-1 block text-xs text-zinc-500">{selectedLayer.name}</span>
           ) : null}
         </label>
+
+        <div className="rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+          <p className="mb-2 text-sm font-semibold text-zinc-900">AI 生图（MVP）</p>
+          <div className="mb-2 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setAiMode("t2i")}
+              className={`rounded border px-2 py-1 text-xs ${aiMode === "t2i" ? "border-[#e85c22] bg-[#e85c22] text-white" : "border-zinc-300 bg-white"}`}
+            >
+              文生图
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiMode("i2i")}
+              className={`rounded border px-2 py-1 text-xs ${aiMode === "i2i" ? "border-[#e85c22] bg-[#e85c22] text-white" : "border-zinc-300 bg-white"}`}
+            >
+              图生图
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiMode("multi_ref")}
+              className={`rounded border px-2 py-1 text-xs ${aiMode === "multi_ref" ? "border-[#e85c22] bg-[#e85c22] text-white" : "border-zinc-300 bg-white"}`}
+            >
+              多图融合
+            </button>
+          </div>
+          <label className="mb-2 block">
+            <span className="mb-1 block text-xs text-zinc-700">Prompt</span>
+            <input
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              className="w-full rounded border border-zinc-300 px-2 py-1.5 text-xs"
+              placeholder="输入你希望生成的画面描述"
+            />
+          </label>
+          <label className="mb-2 block">
+            <span className="mb-1 block text-xs text-zinc-700">参考图 URL/ID（逗号分隔）</span>
+            <input
+              value={aiRefsRaw}
+              onChange={(e) => setAiRefsRaw(e.target.value)}
+              className="w-full rounded border border-zinc-300 px-2 py-1.5 text-xs"
+              placeholder={aiMode === "t2i" ? "文生图可留空" : "https://... 或 picsum:10,picsum:20"}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={onGenerateAi}
+            disabled={aiLoading}
+            className="inline-flex h-9 w-full items-center justify-center rounded-full bg-[#e85c22] text-xs font-semibold text-white hover:bg-[#d14f1b] disabled:opacity-60"
+          >
+            {aiLoading ? "生成中…" : "生成 AI 图片"}
+          </button>
+          {aiRequestId ? <p className="mt-1 text-[11px] text-zinc-500">requestId: {aiRequestId}</p> : null}
+          {aiError ? <p className="mt-1 text-xs text-red-600">{aiError}</p> : null}
+
+          {aiLastGeneration?.outputs?.length ? (
+            <div className="mt-3 space-y-2">
+              {aiLastGeneration.outputs.map((output, idx) => (
+                <div key={`${aiLastGeneration.generation_id}_${idx}`} className="overflow-hidden rounded border border-zinc-200 bg-white">
+                  <img src={output.image_url} alt={`ai-output-${idx + 1}`} className="h-24 w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => void onUseAiOutput(output.image_url)}
+                    className="w-full border-t border-zinc-200 px-2 py-1.5 text-xs font-semibold text-[#e85c22] hover:bg-orange-50"
+                  >
+                    一键放入画布
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-zinc-700">画像の拡大率</span>
@@ -1034,7 +1191,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                 />
                 <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded border border-zinc-300 bg-zinc-100">
                   {layer.type === "image" ? (
-                    <Image src={layer.dataUrl} alt="" width={24} height={24} className="h-full w-full object-cover" />
+                    <img src={layer.dataUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-[10px] font-bold text-zinc-600">T</span>
                   )}
