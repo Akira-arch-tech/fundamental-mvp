@@ -83,6 +83,12 @@ export default async function BackofficeHomePage() {
         >
           对接任务
         </Link>
+        <Link
+          href="/b/generations"
+          className="rounded-full border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-950 hover:bg-amber-50"
+        >
+          生图网关测试
+        </Link>
       </div>
     </div>
   );

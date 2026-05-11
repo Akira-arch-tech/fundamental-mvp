@@ -55,5 +55,6 @@ next-env.d.ts
 .exception-requests-store.json
 .fdm-store-settings.json
 .fdm-ai-artifacts.json
+.fdm-generations.json
 .fdm-product-ai-cover.json
 .stripe-checkout-map.json

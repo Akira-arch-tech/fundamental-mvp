@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 const items = [
   { href: "/b", label: "概览" },
   { href: "/b/orders", label: "订单工作台" },
+  { href: "/b/generations", label: "生图网关" },
   { href: "/b/settings", label: "店铺设置" },
   { href: "/b/ai-editor", label: "AI 编辑器" },
   { href: "/b/exceptions", label: "异常中心" },
