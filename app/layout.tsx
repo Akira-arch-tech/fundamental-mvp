@@ -2,20 +2,19 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FUNDAMENTAL — 推しを、カタチに。",
+  title: "FUNDAMENTAL — カスタムグッズストア",
   description:
-    "アクリルグッズ・1個から・工場直価格・最短7日。中国直送、日本向けオーダーメイド応援グッズ。",
-  openGraph: {
-    title: "FUNDAMENTAL",
-    description: "アクリルグッズ・1個から・工場直価格・最短7日",
-    locale: "ja_JP",
-  },
+    "推し活向けカスタムグッズストアのプロダクトデモ（买家店日语 / 管理后台中文）",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="ja">
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen bg-zinc-50 antialiased text-zinc-900">{children}</body>
     </html>
   );
 }

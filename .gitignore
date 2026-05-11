@@ -1,8 +1,60 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
 /node_modules
-/.next
-/out
-.env
-.env*.local
-*.pem
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
+*.pem
+
+# debug
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# W12/W13 本地对接与告警（无 DATABASE_URL 时）
+.integration-jobs.json
+.integration-alerts.json
+.crm-timeline.json
+.erp-webhook-dedupe.json
+
+# 本地演示数据快照（运行流程后自动生成）
+.customizations-store.json
+.orders-store.json
+.workorders-store.json
+.shipment-events-store.json
+.support-tickets-store.json
+.exception-requests-store.json
+.fdm-store-settings.json
+.fdm-ai-artifacts.json
+.fdm-generations.json
+.fdm-product-ai-cover.json
+.stripe-checkout-map.json
