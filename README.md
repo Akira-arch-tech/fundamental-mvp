@@ -32,6 +32,26 @@ npm run dev
 
 **W12–W13**：`/b/integrations` 查看对接任务与告警；`POST /api/integrations/erp/webhook`（`ERP_WEBHOOK_SECRET`）；`GET /api/backoffice/audit-export`（admin）。验收：`npm run verify:mvp`。
 
+## Vercel：只关联 fundamental-mvp
+
+线上生产与自定义域名（如 `www.fundamental-goods.com`）挂在 Vercel 项目 **`fundamental-mvp`**，不要用 CLI 在本目录「顺手」创建新项目（例如曾误建的 `fundamental-originalprint-clone`，应在 Dashboard 删除以免混淆）。
+
+- **项目控制台**：https://vercel.com/rickyisfighting-5716s-projects/fundamental-mvp  
+- **首次在本机关联 / 换电脑后**：在仓库根目录执行（需已 `vercel login`）：
+
+```bash
+rm -rf .vercel   # 若曾链到其他项目，先清掉再 link
+npx vercel link -y -p fundamental-mvp --scope rickyisfighting-5716s-projects
+```
+
+- **手动推生产构建**：
+
+```bash
+npx vercel deploy --prod --yes
+```
+
+- **说明**：`.vercel/` 已在 `.gitignore` 中，每人本地各自 `link` 即可；与 GitHub `main` 的自动部署也应指向 **同一项目 fundamental-mvp**（在 Vercel → Project → Settings → Git 中确认）。
+
 ## 技术栈
 
 - Next.js 15（App Router）
