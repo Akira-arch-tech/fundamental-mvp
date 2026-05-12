@@ -5,7 +5,7 @@ import { BackofficeNav } from "@/components/BackofficeNav";
 /** 内部运营 / 对接：中文顶栏 + 当前页高亮 */
 export function BackofficeHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-amber-200/80 bg-gradient-to-b from-amber-50 to-amber-50/90 shadow-sm shadow-amber-900/5 backdrop-blur-md">
+    <header className="border-b border-amber-200/80 bg-gradient-to-b from-amber-50 to-amber-50/90 shadow-sm shadow-amber-900/5 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:h-auto sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-2.5">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/b/orders" className="flex shrink-0 flex-col leading-tight">

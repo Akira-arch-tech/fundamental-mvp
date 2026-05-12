@@ -10,7 +10,7 @@ export interface StoreSiteHeaderProps {
 export function StoreSiteHeader({ storeName, locale }: StoreSiteHeaderProps) {
   const tagline = storefrontTagline(locale);
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
+    <div className="border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
         <Link href={storePath("/favorite")} className="flex items-baseline gap-2">
           <span className="text-lg font-bold tracking-tight text-[#e85c22]">{storeName}</span>
@@ -38,6 +38,6 @@ export function StoreSiteHeader({ storeName, locale }: StoreSiteHeaderProps) {
           </Link>
         </nav>
       </div>
-    </header>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ContactForm } from "@/components/ContactForm";
+import { GlobalSiteTabs } from "@/components/GlobalSiteTabs";
 import { storePath } from "@/lib/storefront-constants";
 
 const products = [
@@ -53,10 +54,11 @@ export default function HomePage() {
             </a>
           </div>
         </div>
+        <GlobalSiteTabs />
       </header>
 
       {/* Hero */}
-      <section className="flex min-h-[100svh] flex-col justify-center bg-ink px-4 pb-16 pt-24 sm:px-6">
+      <section className="flex min-h-[100svh] flex-col justify-center bg-ink px-4 pb-16 pt-32 sm:px-6 sm:pt-36">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="text-[clamp(1.75rem,6vw,3.25rem)] font-light leading-tight tracking-[0.08em] text-white">
             推しを、カタチにする。

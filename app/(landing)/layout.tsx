@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GlobalSiteTabs } from "@/components/GlobalSiteTabs";
 import { storePath } from "@/lib/storefront-constants";
 
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default function LandingLayout({ children }: { children: React.ReactNode 
             </Link>
           </nav>
         </div>
+        <GlobalSiteTabs />
       </header>
       {children}
       <footer className="mt-auto border-t border-zinc-200 bg-white py-8 text-center text-xs text-zinc-500">

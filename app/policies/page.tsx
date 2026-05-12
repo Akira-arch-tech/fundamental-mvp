@@ -103,7 +103,7 @@ export default async function PoliciesPage({
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[220px_1fr]">
-        <aside className="lg:sticky lg:top-16 lg:self-start">
+        <aside className="lg:sticky lg:top-28 lg:self-start">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             {ui.docIndex}
           </h2>
