@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ContactForm } from "@/components/ContactForm";
 
 const products = [
@@ -28,12 +29,21 @@ export default function HomePage() {
           >
             FUNDAMENTAL
           </a>
-          <a
-            href="#contact"
-            className="text-xs font-medium tracking-widest text-gold/90 transition hover:text-gold sm:text-sm"
-          >
-            お問い合わせ
-          </a>
+          <div className="flex items-center gap-5 sm:gap-8">
+            <Link
+              href="/policies"
+              className="text-xs font-medium tracking-widest text-white/70 transition hover:text-gold sm:text-sm"
+              title="平台政策与规则 / Platform policies"
+            >
+              ポリシー
+            </Link>
+            <a
+              href="#contact"
+              className="text-xs font-medium tracking-widest text-gold/90 transition hover:text-gold sm:text-sm"
+            >
+              お問い合わせ
+            </a>
+          </div>
         </div>
       </header>
 
@@ -183,6 +193,14 @@ export default function HomePage() {
           </p>
           <p className="mt-3 text-[10px] tracking-wide text-white/25">
             中国製造・日本向け直送サービス
+          </p>
+          <p className="mt-5">
+            <Link
+              href="/policies"
+              className="text-[10px] tracking-wider text-white/40 underline-offset-4 transition hover:text-gold hover:underline"
+            >
+              平台政策与规则 · Platform policies
+            </Link>
           </p>
         </div>
       </footer>
