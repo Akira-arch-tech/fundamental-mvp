@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ContactForm } from "@/components/ContactForm";
+import { storePath } from "@/lib/storefront-constants";
 
 const products = [
   { name: "アクリルキーホルダー", price: "¥200〜" },
@@ -30,6 +31,13 @@ export default function HomePage() {
             FUNDAMENTAL
           </a>
           <div className="flex items-center gap-5 sm:gap-8">
+            <Link
+              href={storePath("/favorite")}
+              className="text-xs font-medium tracking-widest text-white/70 transition hover:text-gold sm:text-sm"
+              title="インタラクティブなストアデモ（推し活トップ）"
+            >
+              ストアデモ
+            </Link>
             <Link
               href="/policies"
               className="text-xs font-medium tracking-widest text-white/70 transition hover:text-gold sm:text-sm"
