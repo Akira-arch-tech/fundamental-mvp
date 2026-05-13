@@ -1,16 +1,16 @@
 # 站点 URL 与全站导航（v1）
 
-本文档记录 FUNDAMENTAL 主域名下**对外可测页面**及**统一顶栏 Tab** 对应关系。生产环境请将 `www.fundamental-goods.com` 替换为你的实际域名。
+本文档记录 FUNDAMENTAL 主域名下**对外可测页面**及**统一顶栏 Tab** 对应关系。下表以示例主域名 `www.fundamental-goods.com` 书写路径；**实际线上**可能是 Vercel 默认域（`*.vercel.app`）或你绑定的自定义域名，请替换表内 origin。
 
 ## 页面与地址
 
-| 页面 | 地址 |
+| 页面 | 地址（示例 origin，请按实际部署替换） |
 |------|------|
-| 营销首页（日文落地） | https://www.fundamental-goods.com/ |
-| 商店 demo 入口（会跳到推し活顶） | https://www.fundamental-goods.com/shop |
-| 推し活商品顶 | https://www.fundamental-goods.com/shop/favorite |
-| 政策页 | https://www.fundamental-goods.com/policies |
-| 后台登录（中文） | https://www.fundamental-goods.com/b/login |
+| 营销首页（日文落地） | `https://www.fundamental-goods.com/` |
+| 商店 demo 入口（会跳到推し活顶） | `https://www.fundamental-goods.com/shop` |
+| 推し活商品顶 | `https://www.fundamental-goods.com/shop/favorite` |
+| 政策页 | `https://www.fundamental-goods.com/policies` |
+| 后台登录（中文） | `https://www.fundamental-goods.com/b/login` |
 
 ## 统一 Tab 布局
 
@@ -42,3 +42,4 @@ Tab 为**站点分区导航**，与店内日语导航（商品一覧 / カート
 
 - **v1**：合并商店至 `/shop` 后建立本文档；增加全站 Tab。
 - **v1.1**：全站 Tab 将「商店入口 + 推し活」合并为单一「商店」Tab。
+- **v1.2**：标明示例域名为占位；线上以 Vercel 默认域或自定义域为准。

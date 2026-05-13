@@ -2,11 +2,13 @@
 
 FUNDAMENTAL 的 **定制商品平台 workspace**（W1–W13 / **M3**：含 **对接队列（ERP/CRM）**、**Webhook 验签**、**重试与死信**、**告警与审计 CSV**；`npm run verify:clickflow` + `npm run verify:mvp`）。
 
+**源码（公开）**：[github.com/Akira-arch-tech/fundamental-mvp](https://github.com/Akira-arch-tech/fundamental-mvp) · 安全说明见根目录 `SECURITY.md`。
+
 ## 文档
 
 - 需求与字段：`../PRD-FUNDAMENTAL-v0.1.md`
 - 执行拆解：`../FUNDAMENTAL-x-CustoMeow-集成实施清单-v0.1.md`
-- 本仓库说明：`docs/WORKSPACE.md`
+- 环境与密钥说明：根目录 `.env.example`；本地数据库：`docker-compose.yml`
 - MVP 产品需求（v0.2）：`docs/PRD-v0.2-MVP.md`
 - CRM/ERP 技术契约（MVP）：`docs/TECH-CONTRACT-CRM-ERP.md`
 - 产品验收手册（v1）：`docs/ACCEPTANCE-RUNBOOK-v1.md`
@@ -30,7 +32,7 @@ npm run dev
 
 **W10**：顶栏「后台登录」进入 `/b/login`，会话写入 Cookie；订单页异常审核按钮与 `PATCH .../exceptions/{id}` 均以服务端会话角色为准，不再手工选角色。
 
-**W11**：配置 `DATABASE_URL` 后订单与异常落 PostgreSQL；登录为邮箱密码 + `sessions` 表；`/b/orders`、`/b/exceptions` 为后台工作台。详见 `docs/WORKSPACE.md` 与根目录 `docker-compose.yml`、`.env.example`。
+**W11**：配置 `DATABASE_URL` 后订单与异常落 PostgreSQL；登录为邮箱密码 + `sessions` 表；`/b/orders`、`/b/exceptions` 为后台工作台。详见根目录 `docker-compose.yml` 与 `.env.example`。
 
 **W12–W13**：`/b/integrations` 查看对接任务与告警；`POST /api/integrations/erp/webhook`（`ERP_WEBHOOK_SECRET`）；`GET /api/backoffice/audit-export`（admin）。验收：`npm run verify:mvp`。
 
@@ -38,12 +40,12 @@ npm run dev
 
 线上生产与自定义域名（如 `www.fundamental-goods.com`）挂在 Vercel 项目 **`fundamental-mvp`**，不要用 CLI 在本目录「顺手」创建新项目（例如曾误建的 `fundamental-originalprint-clone`，应在 Dashboard 删除以免混淆）。
 
-- **项目控制台**：https://vercel.com/rickyisfighting-5716s-projects/fundamental-mvp  
+- **项目控制台**：登录 [vercel.com](https://vercel.com) → 选择你的团队 → 打开项目 **`fundamental-mvp`**（控制台 URL 形如 `https://vercel.com/<你的团队_slug>/fundamental-mvp`，以账号为准）。
 - **首次在本机关联 / 换电脑后**：在仓库根目录执行（需已 `vercel login`）：
 
 ```bash
 rm -rf .vercel   # 若曾链到其他项目，先清掉再 link
-npx vercel link -y -p fundamental-mvp --scope rickyisfighting-5716s-projects
+npx vercel link   # 按提示选择团队与项目 fundamental-mvp；需非交互可加 -y -p fundamental-mvp --scope <你的团队_slug>
 ```
 
 - **手动推生产构建**：
@@ -56,7 +58,7 @@ npx vercel deploy --prod --yes
 
 ## 技术栈
 
-- Next.js 15（App Router）
+- Next.js 16（App Router）
 - TypeScript + Tailwind CSS
 - PostgreSQL + Drizzle ORM（可选，`DATABASE_URL`）
 - 商品图为远程占位（picsum.photos），见 `next.config.ts` 中 `images.remotePatterns`
