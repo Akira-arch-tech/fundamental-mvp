@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+const WEBHOOK_TIMESTAMP_TOLERANCE_S = 300;
+
 /** ERP 回调验签：`X-Signature: t=<unix>,v1=<hex>`，签名为 HMAC-SHA256(secret, `${t}.${rawBody}`) */
 export function verifyErpWebhookSignature(
   rawBody: string,
@@ -16,8 +18,13 @@ export function verifyErpWebhookSignature(
   const t = parts.t;
   const v1 = parts.v1;
   if (!t || !v1) return false;
+  const tNum = parseInt(t, 10);
+  if (!Number.isFinite(tNum)) return false;
+  const nowS = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowS - tNum) > WEBHOOK_TIMESTAMP_TOLERANCE_S) return false;
   const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
   try {
+    if (expected.length !== v1.length) return false;
     return timingSafeEqual(Buffer.from(expected, "utf-8"), Buffer.from(v1, "utf-8"));
   } catch {
     return false;
