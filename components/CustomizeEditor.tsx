@@ -3,7 +3,9 @@
 import Image from "next/image";
 import { RemoteSafeFillImage } from "@/components/RemoteSafeImage";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AigcCandidate } from "@/lib/aigc-types";
+import { AIGC_GENERATIONS_API_PATH, AIGC_MAX_REFERENCE_ASSET_COUNT } from "@/lib/aigc-shared-constants";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
 
@@ -130,6 +132,41 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [error, setError] = useState("");
   const [cartMsg, setCartMsg] = useState("");
   const [saved, setSaved] = useState<SaveResult | null>(null);
+
+  /** 买家店 AIGC（MVP）：与 `POST /api/aigc/generations` 闭环；参考图数量仅占位，multipart 后续再接 */
+  const [aigcPrompt, setAigcPrompt] = useState("");
+  const [aigcRefFiles, setAigcRefFiles] = useState<File[]>([]);
+  const [aigcJobId, setAigcJobId] = useState<string | null>(null);
+  const [aigcStatus, setAigcStatus] = useState<string | null>(null);
+  const [aigcDeadlineIso, setAigcDeadlineIso] = useState<string | null>(null);
+  const [aigcCandidates, setAigcCandidates] = useState<AigcCandidate[]>([]);
+  const [aigcPickIndex, setAigcPickIndex] = useState(0);
+  const [aigcBusy, setAigcBusy] = useState(false);
+  const [aigcMsg, setAigcMsg] = useState("");
+  const [aigcErr, setAigcErr] = useState("");
+  const [aigcTick, setAigcTick] = useState(0);
+  const aigcPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const aigcSecondsLeft = useMemo(() => {
+    if (!aigcDeadlineIso || aigcStatus !== "ready") return null;
+    const end = new Date(aigcDeadlineIso).getTime();
+    return Math.max(0, Math.ceil((end - Date.now()) / 1000));
+  }, [aigcDeadlineIso, aigcStatus, aigcTick]);
+
+  useEffect(() => {
+    if (aigcStatus !== "ready" || !aigcDeadlineIso) return;
+    const t = setInterval(() => setAigcTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [aigcStatus, aigcDeadlineIso]);
+
+  const clearAigcPoll = useCallback(() => {
+    if (aigcPollRef.current) {
+      clearInterval(aigcPollRef.current);
+      aigcPollRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => clearAigcPoll(), [clearAigcPoll]);
 
   const selectedLayer = useMemo(
     () => layers.find((layer) => layer.id === selectedLayerId) ?? null,
@@ -694,8 +731,153 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     URL.revokeObjectURL(url);
   }
 
+  async function fetchAigcJob(jobId: string) {
+    const res = await fetch(`${AIGC_GENERATIONS_API_PATH}/${jobId}`);
+    const json = (await res.json()) as {
+      status?: string;
+      candidates?: AigcCandidate[];
+      confirm_deadline_at?: string;
+      error?: { code?: string; message?: string };
+      message?: string;
+    };
+    return { ok: res.ok, json };
+  }
+
+  function onAigcRefFilesChange(fileList: FileList | null) {
+    const list = Array.from(fileList ?? []).slice(0, AIGC_MAX_REFERENCE_ASSET_COUNT);
+    setAigcRefFiles(list);
+  }
+
+  async function onAigcGenerate() {
+    setAigcBusy(true);
+    setAigcErr("");
+    setAigcMsg("");
+    clearAigcPoll();
+    setAigcJobId(null);
+    setAigcStatus(null);
+    setAigcDeadlineIso(null);
+    setAigcCandidates([]);
+    setAigcPickIndex(0);
+    try {
+      const res = await fetch(AIGC_GENERATIONS_API_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_id: product.product_id,
+          prompt: aigcPrompt.trim() || undefined,
+          reference_asset_count: aigcRefFiles.length,
+        }),
+      });
+      const json = (await res.json()) as { job_id?: string; message?: string; code?: string };
+      if (!res.ok) throw new Error(json.message ?? json.code ?? "生成リクエストに失敗しました");
+      const jobId = json.job_id;
+      if (!jobId) throw new Error("job_id がありません");
+      setAigcJobId(jobId);
+
+      for (let i = 0; i < 20; i++) {
+        const { ok, json: j } = await fetchAigcJob(jobId);
+        if (!ok) throw new Error(j.message ?? "ジョブ取得に失敗しました");
+        const st = j.status ?? "";
+        setAigcStatus(st);
+        setAigcDeadlineIso(j.confirm_deadline_at ?? null);
+        if (st === "ready" && Array.isArray(j.candidates) && j.candidates.length > 0) {
+          setAigcCandidates(j.candidates);
+          setAigcPickIndex(0);
+          setAigcMsg("候補が出ました。1枚選んで「候補を確定」を押してください（確認期限内）。");
+          setAigcBusy(false);
+          return;
+        }
+        if (st === "expired") {
+          setAigcErr("確認期限を過ぎました。もう一度生成してください。");
+          setAigcBusy(false);
+          return;
+        }
+        if (st === "failed") {
+          setAigcErr(j.error?.message ?? "生成に失敗しました");
+          setAigcBusy(false);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      setAigcErr("タイムアウト：候補の取得に失敗しました");
+    } catch (e) {
+      setAigcErr(e instanceof Error ? e.message : "エラー");
+    } finally {
+      setAigcBusy(false);
+    }
+  }
+
+  async function onAigcConfirm() {
+    if (!aigcJobId || aigcStatus !== "ready") return;
+    setAigcBusy(true);
+    setAigcErr("");
+    try {
+      const res = await fetch(`${AIGC_GENERATIONS_API_PATH}/${aigcJobId}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidate_index: aigcPickIndex }),
+      });
+      const json = (await res.json()) as {
+        status?: string;
+        selected?: { index: number; url: string };
+        message?: string;
+        code?: string;
+      };
+      if (!res.ok) throw new Error(json.message ?? json.code ?? "確定に失敗しました");
+      const url = json.selected?.url;
+      if (!url) throw new Error("候補URLがありません");
+      setAigcStatus(json.status ?? "confirmed");
+      const id = `layer_img_aigc_${Date.now()}`;
+      const newLayer: ImageLayer = {
+        id,
+        type: "image",
+        name: `AI生成 候補${aigcPickIndex}`,
+        dataUrl: url,
+        locked: false,
+        x: 0,
+        y: 0,
+        scaleX: 1,
+        scaleY: 1,
+        rotate: 0,
+      };
+      updateEditor((prev) => [newLayer, ...prev]);
+      setSelectedLayerId(id);
+      setSelectedLayerIds([id]);
+      setAigcCandidates([]);
+      setAigcDeadlineIso(null);
+      setAigcMsg("キャンバスに追加しました。「デザインを保存」でカスタム内容をサーバーに保存し、カートへ進めます。");
+    } catch (e) {
+      setAigcErr(e instanceof Error ? e.message : "エラー");
+    } finally {
+      setAigcBusy(false);
+    }
+  }
+
+  function onAigcReset() {
+    clearAigcPoll();
+    setAigcJobId(null);
+    setAigcStatus(null);
+    setAigcDeadlineIso(null);
+    setAigcCandidates([]);
+    setAigcErr("");
+    setAigcMsg("");
+  }
+
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 lg:grid-cols-[1fr_380px]">
+    <>
+      <div className="mx-auto max-w-6xl px-4 pt-4">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 text-sm leading-relaxed text-amber-950">
+          <strong className="font-semibold">デモについて：</strong>
+          本ページは主に「画像アップロード＋キャンバス上の配置・テキスト編集」の体験です。AI
+          画像生成は MVP として段階的に拡充しています（下の「AI
+          画像」ブロック）。詳細は
+          <Link href="/policies" className="mx-1 font-semibold text-[#e85c22] underline">
+            ポリシー
+          </Link>
+          をご確認ください。
+        </div>
+      </div>
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-4 lg:grid-cols-[1fr_380px]">
       <section>
         <div
           ref={stageRef}
@@ -860,6 +1042,99 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           <h1 className="text-xl font-bold text-zinc-900">デザインエディタ v2.5</h1>
           <p className="mt-1 text-sm text-zinc-600">{product.title}</p>
         </div>
+
+        <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm text-zinc-800">
+          <h2 className="text-sm font-bold text-violet-900">AI 画像（MVP デモ）</h2>
+          <p className="mt-1 text-xs text-zinc-600">
+            参考画像は最大 {AIGC_MAX_REFERENCE_ASSET_COUNT}{" "}
+            枚まで選択できます（現状は件数のみサーバーに送り、実ファイルは今後 multipart 対応）。
+          </p>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-xs font-medium text-zinc-700">参考画像（複数可）</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => onAigcRefFilesChange(e.target.files)}
+              className="block w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs file:mr-2 file:rounded file:border-0 file:bg-violet-100 file:px-2 file:py-1"
+            />
+            {aigcRefFiles.length > 0 ? (
+              <span className="mt-1 block text-xs text-zinc-500">
+                選択中: {aigcRefFiles.length} 枚（API へ reference_asset_count として送信）
+              </span>
+            ) : null}
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-xs font-medium text-zinc-700">プロンプト（任意）</span>
+            <textarea
+              value={aigcPrompt}
+              onChange={(e) => setAigcPrompt(e.target.value)}
+              rows={2}
+              maxLength={2000}
+              placeholder="例：推しの雰囲気に合う淡い背景"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-violet-500"
+            />
+          </label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void onAigcGenerate()}
+              disabled={aigcBusy}
+              className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {aigcBusy ? "処理中…" : "候補を生成"}
+            </button>
+            {(aigcJobId || aigcMsg || aigcErr) && !aigcCandidates.length ? (
+              <button
+                type="button"
+                onClick={onAigcReset}
+                disabled={aigcBusy}
+                className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 disabled:opacity-50"
+              >
+                リセット
+              </button>
+            ) : null}
+          </div>
+          {aigcErr ? <p className="mt-2 text-xs text-red-600">{aigcErr}</p> : null}
+          {aigcMsg && !aigcErr ? <p className="mt-2 text-xs text-emerald-800">{aigcMsg}</p> : null}
+          {aigcStatus === "ready" && aigcCandidates.length > 0 ? (
+            <div className="mt-3 space-y-2 border-t border-violet-200 pt-3">
+              <p className="text-xs font-semibold text-violet-900">候補を選択</p>
+              {aigcSecondsLeft != null ? (
+                <p className="text-xs text-amber-800">
+                  確認の残り時間:{" "}
+                  <span className="font-mono font-bold">
+                    {String(Math.floor(aigcSecondsLeft / 60)).padStart(2, "0")}:
+                    {String(aigcSecondsLeft % 60).padStart(2, "0")}
+                  </span>
+                </p>
+              ) : null}
+              <div className="flex gap-2">
+                {aigcCandidates.map((c) => (
+                  <button
+                    key={c.index}
+                    type="button"
+                    onClick={() => setAigcPickIndex(c.index)}
+                    className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${
+                      aigcPickIndex === c.index ? "border-violet-600 ring-2 ring-violet-300" : "border-zinc-200"
+                    }`}
+                  >
+                    <Image src={c.url} alt={`候補 ${c.index}`} fill className="object-cover" sizes="80px" />
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void onAigcConfirm()}
+                disabled={aigcBusy || aigcSecondsLeft === 0}
+                className="mt-1 w-full rounded-full bg-[#e85c22] py-2 text-xs font-bold text-white hover:bg-[#d14f1b] disabled:opacity-50"
+              >
+                候補を確定してキャンバスへ
+              </button>
+            </div>
+          ) : null}
+        </div>
+
         <div className="flex gap-2">
           <button
             type="button"
@@ -1187,5 +1462,6 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         </Link>
       </section>
     </div>
+    </>
   );
 }

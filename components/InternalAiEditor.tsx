@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AiArtifactRecord } from "@/lib/ai-artifacts-store";
+import { AIGC_GENERATIONS_API_PATH } from "@/lib/aigc-shared-constants";
 import { storePath } from "@/lib/storefront-constants";
 
 const IFRAME_LOAD_MS = 8000;
 
 interface InternalAiEditorProps {
-  /** 嵌入的超合体 / 外部创作中心地址 */
+  /** 嵌入的外链创作中心（演示触点）地址，如 env NEXT_PUBLIC_CHAOHETI_DASHBOARD_URL */
   embedUrl: string;
 }
 
@@ -185,7 +186,7 @@ export function InternalAiEditor({ embedUrl }: InternalAiEditorProps) {
               {
                 action_type: "generate_cover",
                 prompt_ref: "internal-ai-editor/manual",
-                provider: "chaoheti",
+                provider: "external_iframe",
                 request_id: `req_scene_${Date.now().toString(36)}`,
                 result_ref: taskId.trim(),
               },
@@ -222,8 +223,15 @@ export function InternalAiEditor({ embedUrl }: InternalAiEditorProps) {
           <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900/75">FUNDAMENTAL</p>
           <h1 className="text-lg font-bold text-zinc-900">内部 AI 编辑器</h1>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-            右侧嵌入超合体创作中心（同源策略下可能被拒绝，属正常现象）。请善用「新窗口打开」与下方回写登记。
+            右侧嵌入<strong>外链创作中心</strong>（演示触点；与任何第三方<strong>服务端 API 对接无关</strong>）。若遇 X-Frame 拒绝为正常现象，请用「新窗口打开」与下方回写登记。
           </p>
+        </div>
+        <div className="rounded-lg border border-sky-100 bg-sky-50/90 px-3 py-2 text-[11px] leading-relaxed text-sky-950">
+          <span className="font-semibold">与买家店契约对齐：</span>
+          买家在 <code className="rounded bg-white/90 px-0.5">/shop/customize/…</code> 走公开 BFF{" "}
+          <code className="break-all rounded bg-white/90 px-0.5">{AIGC_GENERATIONS_API_PATH}</code>
+          （无需 <code className="rounded bg-white/90 px-0.5">fdm_session</code>
+          ）；本页登记仍使用 <code className="rounded bg-white/90 px-0.5">/api/backoffice/*</code>。
         </div>
         <div className="flex flex-wrap gap-2">
           <a

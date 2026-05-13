@@ -6,9 +6,8 @@
 
 ## 根因（代码事实）
 
-1. **买家定制编辑器未接生图链路**  
-   `components/CustomizeEditor.tsx` 当前是 **图层编辑器**（本地上传、文字/配色、预览、`POST /api/customizations` 保存），**没有**调用任何「文生图 / 图生图」API，也没有「生成 → 候选 → 确认」状态机 UI。  
-   在仓库内对 `CustomizeEditor` 检索 `generate`、`生图`、模型商相关接口均为 **无匹配**。
+1. **买家定制编辑器未接生图链路**（~~已解决 MVP~~）  
+   `components/CustomizeEditor.tsx` 现为 **图层编辑器** + **AIGC MVP 区块**（`POST /api/aigc/generations` → 轮询 → 确认 → 画布图层 → 既存 `POST /api/customizations`）。占位候选、Serverless 多实例不共享等限制仍见 `docs/AIGC-API-MVP-SKELETON-v1.md`。
 
 2. **AIGC 相关能力集中在后台 / 运营侧**  
    - `components/InternalAiEditor.tsx`：iframe 外链「创作中心」+ **手工回写** task / URL，面向 **`/b/*` 内部运营**，不是买家店结账路径。  
@@ -21,19 +20,20 @@
 
 | 阶段 | 做什么 | 产出 |
 |------|--------|------|
-| **A. 短期对齐预期** | 在定制页顶部加 **说明条**：当前 demo 为「上传 + 编排」；AI 生图在路线图 / 或跳转政策 `/policies` | 减少「政策写了但页上没有」的落差 |
-| **B. MVP 闭环** | 在 `CustomizeEditor` 增加区块：**参考图多选 → 调用自建 `POST /api/.../generate`（或 BFF）→ 轮询/展示候选 → 10 分钟内确认 → 写入 customization** | 与 PRD / 政策一致的最小 UI；**API 骨架已见** `docs/AIGC-API-MVP-SKELETON-v1.md`（`/api/aigc/generations`） |
-| **C. 与后台统一** | 复用 `InternalAiEditor` 同一模型商或同一 BFF，买家仅暴露简化参数；订单/发货仍走现有 `customization_id` | 工程复用、权限隔离（买家 vs `fdm_session` 后台） |
+| **A. 短期对齐预期** | 在定制页顶部加 **说明条**：当前 demo 为「上传 + 编排」；AI 生图为 MVP 扩展；链至 **`/policies`** | **已落地**（`CustomizeEditor` 顶部提示） |
+| **B. MVP 闭环** | 在 `CustomizeEditor` 增加区块：**参考图多选（件数占位）→ `POST /api/aigc/generations` → 轮询候选 → 确认窗内确认 → 并入画布与 `POST /api/customizations`** | **已落地**；契约见 `docs/AIGC-API-MVP-SKELETON-v1.md` |
+| **C. 与后台统一** | 买家与后台共用 **同一公开 BFF 路径常量**（`lib/aigc-shared-constants.ts`）；后台仍走 `/api/backoffice/*`，`InternalAiEditor` 侧增加对齐说明 | **已落地（文档/常量层）**；真模型商对齐待后续 |
 
 ## 验收建议
 
 - 定制页可见 **生成按钮**、**候选缩略图**、**倒计时或过期提示**、**确认选用** 后进入现有「保存 → 购物车 → 结账」链路。  
-- E2E：可在 `verify-clickflow.mjs` 或 Playwright 中增加「mock 生图 API」的断言。
+- E2E：`verify-clickflow.mjs` 已包含 **AIGC create → get → confirm** 断言；定制页 HTML 断言含 **「AI 画像」** 区块。
 
 ---
 
-*文档版本 v1 · 与代码审查同步；实现排期由产品拍板。*
+*文档版本 v1.2 · 与买家店 AIGC MVP 落地同步。*
 
 ## 修订记录
 
 - **v1.1**：补充 B 方案 **HTTP API 骨架** 文档链接 `docs/AIGC-API-MVP-SKELETON-v1.md`。
+- **v1.2**：A/B/C 方案 **MVP 已落地**（`CustomizeEditor`、`InternalAiEditor` 对齐说明、`verify-clickflow`、共享常量）。

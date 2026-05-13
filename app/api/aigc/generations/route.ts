@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { products } from "@/data/seed";
 import { createGenerationJob } from "@/lib/aigc-generation-store";
+import { AIGC_MAX_REFERENCE_ASSET_COUNT } from "@/lib/aigc-shared-constants";
 import { newRequestId } from "@/lib/request-id";
 import type { AigcGenerationCreateBody } from "@/lib/aigc-types";
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       typeof body.prompt === "string" && body.prompt.trim() ? body.prompt.trim().slice(0, 2000) : null;
     const reference_asset_count =
       typeof body.reference_asset_count === "number" && body.reference_asset_count >= 0
-        ? Math.min(8, Math.floor(body.reference_asset_count))
+        ? Math.min(AIGC_MAX_REFERENCE_ASSET_COUNT, Math.floor(body.reference_asset_count))
         : 0;
 
     const job = createGenerationJob({

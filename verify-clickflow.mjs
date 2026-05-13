@@ -10,7 +10,10 @@ const checks = [
   { path: `${store}/favorite`, mustInclude: "オリジナル推し活グッズ" },
   { path: `${store}/products`, mustInclude: "商品一覧" },
   { path: `${store}/products/free-acrylic-stand-clear`, mustInclude: "デザインを始める" },
-  { path: `${store}/customize/p1`, mustInclude: "デザインエディタ" },
+  {
+    path: `${store}/customize/p1`,
+    mustIncludeAll: ["デザインエディタ", "AI 画像"],
+  },
   { path: `${store}/checkout`, mustInclude: "チェックアウト" },
 ];
 
@@ -72,11 +75,54 @@ async function runChecks() {
       throw new Error(`${c.path} returned ${res.status}`);
     }
     const html = await res.text();
-    if (!html.includes(c.mustInclude)) {
+    if (c.mustIncludeAll) {
+      for (const m of c.mustIncludeAll) {
+        if (!html.includes(m)) {
+          throw new Error(`${c.path} missing marker: ${m}`);
+        }
+      }
+    } else if (!html.includes(c.mustInclude)) {
       throw new Error(`${c.path} missing marker: ${c.mustInclude}`);
     }
     console.log(`PASS ${c.path}`);
   }
+
+  const aigcCreate = await fetch(`${base}/api/aigc/generations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      product_id: "p1",
+      prompt: "verify-clickflow",
+      reference_asset_count: 0,
+    }),
+  });
+  if (!aigcCreate.ok) {
+    throw new Error(`POST /api/aigc/generations failed ${aigcCreate.status}`);
+  }
+  const aigcCreateJson = await aigcCreate.json();
+  if (!aigcCreateJson.job_id) throw new Error("AIGC create missing job_id");
+  if (aigcCreateJson.status !== "ready") {
+    throw new Error(`AIGC create unexpected status ${aigcCreateJson.status}`);
+  }
+  const aigcGet = await fetch(`${base}/api/aigc/generations/${aigcCreateJson.job_id}`);
+  if (!aigcGet.ok) throw new Error(`GET /api/aigc/generations/[jobId] failed ${aigcGet.status}`);
+  const aigcGetJson = await aigcGet.json();
+  if (aigcGetJson.status !== "ready" || !Array.isArray(aigcGetJson.candidates) || aigcGetJson.candidates.length === 0) {
+    throw new Error("AIGC job not ready with candidates");
+  }
+  const aigcConfirm = await fetch(`${base}/api/aigc/generations/${aigcCreateJson.job_id}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidate_index: 0 }),
+  });
+  if (!aigcConfirm.ok) {
+    throw new Error(`POST /api/aigc/generations/[jobId]/confirm failed ${aigcConfirm.status}`);
+  }
+  const aigcConfirmJson = await aigcConfirm.json();
+  if (aigcConfirmJson.status !== "confirmed" || !aigcConfirmJson.selected?.url) {
+    throw new Error("AIGC confirm missing confirmed status or selected.url");
+  }
+  console.log("PASS /api/aigc/generations (create + get + confirm)");
 
   const customizationRes = await fetch(`${base}/api/customizations`, {
     method: "POST",
@@ -261,7 +307,16 @@ async function runChecks() {
   const cartAddRes = await fetch(`${base}/api/cart`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ product_id: "p1", qty: 2, added_from: "product" }),
+    body: JSON.stringify({
+      product_id: "p1",
+      qty: 2,
+      added_from: "product",
+      // p1 规格必填 + 白名单组合（见 lib/spec-combination-whitelist.ts）
+      selected_specs: [
+        { spec_id: "size", value_id: "s" },
+        { spec_id: "base", value_id: "slit" },
+      ],
+    }),
   });
   if (!cartAddRes.ok) {
     throw new Error(`POST /api/cart failed: ${cartAddRes.status}`);
@@ -318,7 +373,12 @@ async function main() {
     ["next", "dev", "--hostname", host, "--port", String(port)],
     {
       stdio: "pipe",
-      env: { ...process.env, NEXT_DISABLE_TURBOPACK: "1" },
+      env: {
+        ...process.env,
+        NEXT_DISABLE_TURBOPACK: "1",
+        // 默认同 `isDatabaseEnabled()` 对齐：无 DB 时用 Mock Cookie 跑通后台 API；需测真实 DB 时设 VERIFY_CLICKFLOW_WITH_DB=1
+        ...(process.env.VERIFY_CLICKFLOW_WITH_DB === "1" ? {} : { DATABASE_URL: "" }),
+      },
     },
   );
 
