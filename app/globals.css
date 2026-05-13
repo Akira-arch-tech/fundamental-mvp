@@ -13,11 +13,11 @@ html {
 }
 
 body {
-  @apply bg-ink text-white antialiased;
+  @apply bg-white text-zinc-900 antialiased;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans",
     "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
 }
 
 ::selection {
-  @apply bg-gold/30 text-white;
+  @apply bg-[#e85c22]/20 text-zinc-900;
 }

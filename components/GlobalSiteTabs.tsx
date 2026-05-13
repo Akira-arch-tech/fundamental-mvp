@@ -23,19 +23,12 @@ function tabActive(pathname: string, key: (typeof TABS)[number]["key"]): boolean
   return false;
 }
 
-function surfaceForPath(pathname: string): "dark" | "light" | "amber" {
+function surfaceForPath(pathname: string): "light" | "amber" {
   if (pathname.startsWith("/b")) return "amber";
-  if (pathname === "/") return "dark";
   return "light";
 }
 
 const surfaceStyles = {
-  dark: {
-    bar: "border-white/10 bg-black/25",
-    link: "text-white/60 hover:text-white/90",
-    active: "text-gold border-gold",
-    inactiveBorder: "border-transparent",
-  },
   light: {
     bar: "border-zinc-200 bg-zinc-50/95",
     link: "text-zinc-600 hover:text-zinc-900",

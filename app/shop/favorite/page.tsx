@@ -38,7 +38,7 @@ export default async function FavoritePage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <section className="mb-8 overflow-hidden rounded-2xl border border-zinc-200 bg-gradient-to-br from-orange-50 to-white">
+      <section className="mb-8 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <div className="grid gap-6 p-6 md:grid-cols-[1fr_220px] md:items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-[#e85c22]">

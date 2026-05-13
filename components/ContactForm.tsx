@@ -56,16 +56,16 @@ export function ContactForm() {
   if (submitted) {
     return (
       <div
-        className="rounded-2xl border border-gold/40 bg-white/[0.03] px-6 py-12 text-center"
+        className="rounded-2xl border border-zinc-200 bg-white px-6 py-12 text-center shadow-sm"
         role="status"
       >
-        <p className="text-lg font-medium tracking-wide text-gold">
+        <p className="text-lg font-medium text-[#e85c22]">
           ありがとうございます！24時間以内にご連絡いたします。
         </p>
         <button
           type="button"
           onClick={() => setSubmitted(false)}
-          className="mt-8 text-sm text-white/60 underline decoration-white/30 underline-offset-4 transition hover:text-white"
+          className="mt-8 text-sm text-zinc-600 underline decoration-zinc-300 underline-offset-4 transition hover:text-[#e85c22]"
         >
           別のお問い合わせを送る
         </button>
@@ -76,50 +76,43 @@ export function ContactForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-xl space-y-6">
       <div>
-        <label htmlFor="name" className="mb-2 block text-xs font-medium tracking-wider text-white/70">
-          お名前 <span className="text-gold">*</span>
+        <label htmlFor="name" className="mb-2 block text-xs font-medium text-zinc-700">
+          お名前 <span className="text-[#e85c22]">*</span>
         </label>
         <input
           id="name"
           type="text"
           autoComplete="name"
-          className="w-full rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none ring-gold/30 placeholder:text-white/25 focus:border-gold/50 focus:ring-2"
+          className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-[#e85c22]/20 placeholder:text-zinc-400 focus:border-[#e85c22] focus:ring-2"
           placeholder="山田 太郎"
           {...register("name", { required: "お名前を入力してください" })}
         />
-        {errors.name && (
-          <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>
-        )}
+        {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="email" className="mb-2 block text-xs font-medium tracking-wider text-white/70">
-          メールアドレス <span className="text-gold">*</span>
+        <label htmlFor="email" className="mb-2 block text-xs font-medium text-zinc-700">
+          メールアドレス <span className="text-[#e85c22]">*</span>
         </label>
         <input
           id="email"
           type="email"
           autoComplete="email"
-          className="w-full rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none ring-gold/30 placeholder:text-white/25 focus:border-gold/50 focus:ring-2"
+          className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-[#e85c22]/20 placeholder:text-zinc-400 focus:border-[#e85c22] focus:ring-2"
           placeholder="example@email.com"
           {...register("email", { required: "メールアドレスを入力してください" })}
         />
-        {errors.email && (
-          <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
-          <label
-            htmlFor="product"
-            className="mb-2 block text-xs font-medium tracking-wider text-white/70"
-          >
-            希望商品 <span className="text-gold">*</span>
+          <label htmlFor="product" className="mb-2 block text-xs font-medium text-zinc-700">
+            希望商品 <span className="text-[#e85c22]">*</span>
           </label>
           <select
             id="product"
-            className="w-full appearance-none rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none ring-gold/30 focus:border-gold/50 focus:ring-2"
+            className="w-full appearance-none rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-[#e85c22] focus:ring-2 focus:ring-[#e85c22]/20"
             {...register("product", { required: true })}
           >
             <option value="keyring">アクリルキーホルダー</option>
@@ -131,15 +124,12 @@ export function ContactForm() {
           </select>
         </div>
         <div>
-          <label
-            htmlFor="quantity"
-            className="mb-2 block text-xs font-medium tracking-wider text-white/70"
-          >
-            希望数量 <span className="text-gold">*</span>
+          <label htmlFor="quantity" className="mb-2 block text-xs font-medium text-zinc-700">
+            希望数量 <span className="text-[#e85c22]">*</span>
           </label>
           <select
             id="quantity"
-            className="w-full appearance-none rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none ring-gold/30 focus:border-gold/50 focus:ring-2"
+            className="w-full appearance-none rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-[#e85c22] focus:ring-2 focus:ring-[#e85c22]/20"
             {...register("quantity", { required: true })}
           >
             <option value="1-10">1〜10個</option>
@@ -151,34 +141,34 @@ export function ContactForm() {
       </div>
 
       <div>
-        <label htmlFor="message" className="mb-2 block text-xs font-medium tracking-wider text-white/70">
+        <label htmlFor="message" className="mb-2 block text-xs font-medium text-zinc-700">
           ご要望・詳細
         </label>
         <textarea
           id="message"
           rows={5}
-          className="w-full resize-y rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none ring-gold/30 placeholder:text-white/30 focus:border-gold/50 focus:ring-2"
+          className="w-full resize-y rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[#e85c22] focus:ring-2 focus:ring-[#e85c22]/20"
           placeholder="推しの名前、カラーイメージ、参考画像URLなど"
           {...register("message")}
         />
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-        <label className="flex cursor-pointer items-start gap-3 text-xs leading-relaxed text-white/75">
+      <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+        <label className="flex cursor-pointer items-start gap-3 text-xs leading-relaxed text-zinc-700">
           <input
             type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-white/30 bg-transparent text-gold focus:ring-gold/60"
+            className="mt-0.5 h-4 w-4 rounded border-zinc-400 text-[#e85c22] focus:ring-[#e85c22]/40"
             {...register("agree", { required: "ご利用ルール・免責事項への同意が必要です。" })}
           />
           <span>
             ご利用ルール・免責事項（送料、納期、著作権責任）を読み、内容に同意します。
           </span>
         </label>
-        {errors.agree && <p className="mt-2 text-xs text-red-400">{errors.agree.message}</p>}
+        {errors.agree && <p className="mt-2 text-xs text-red-600">{errors.agree.message}</p>}
       </div>
 
       {submitError ? (
-        <p className="text-center text-sm text-red-400" role="alert">
+        <p className="text-center text-sm text-red-600" role="alert">
           {submitError}
         </p>
       ) : null}
@@ -187,7 +177,7 @@ export function ContactForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-gold bg-gold/10 py-4 text-sm font-semibold tracking-widest text-gold transition hover:bg-gold hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#e85c22] py-4 text-sm font-semibold tracking-widest text-white shadow-sm transition hover:bg-[#d14f1b] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "送信中…" : "お見積もりを依頼する →"}
         </button>

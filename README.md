@@ -12,6 +12,7 @@ FUNDAMENTAL 的 **定制商品平台 workspace**（W1–W13 / **M3**：含 **对
 - 产品验收手册（v1）：`docs/ACCEPTANCE-RUNBOOK-v1.md`
 - 加购与编辑器方案：`docs/CUSTOM-EDITOR-AND-CART-PLAN-v1.md`
 - 站点 URL 与全站 Tab 导航：`docs/SITE-URLS-AND-NAV-v1.md`
+- 买家店 AIGC 能力与页面差距说明：`docs/AIGC-STOREFRONT-GAP-v1.md`
 
 ## 开发
 
