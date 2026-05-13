@@ -22,7 +22,7 @@
 | 阶段 | 做什么 | 产出 |
 |------|--------|------|
 | **A. 短期对齐预期** | 在定制页顶部加 **说明条**：当前 demo 为「上传 + 编排」；AI 生图在路线图 / 或跳转政策 `/policies` | 减少「政策写了但页上没有」的落差 |
-| **B. MVP 闭环** | 在 `CustomizeEditor` 增加区块：**参考图多选 → 调用自建 `POST /api/.../generate`（或 BFF）→ 轮询/展示候选 → 10 分钟内确认 → 写入 customization** | 与 PRD / 政策一致的最小 UI |
+| **B. MVP 闭环** | 在 `CustomizeEditor` 增加区块：**参考图多选 → 调用自建 `POST /api/.../generate`（或 BFF）→ 轮询/展示候选 → 10 分钟内确认 → 写入 customization** | 与 PRD / 政策一致的最小 UI；**API 骨架已见** `docs/AIGC-API-MVP-SKELETON-v1.md`（`/api/aigc/generations`） |
 | **C. 与后台统一** | 复用 `InternalAiEditor` 同一模型商或同一 BFF，买家仅暴露简化参数；订单/发货仍走现有 `customization_id` | 工程复用、权限隔离（买家 vs `fdm_session` 后台） |
 
 ## 验收建议
@@ -33,3 +33,7 @@
 ---
 
 *文档版本 v1 · 与代码审查同步；实现排期由产品拍板。*
+
+## 修订记录
+
+- **v1.1**：补充 B 方案 **HTTP API 骨架** 文档链接 `docs/AIGC-API-MVP-SKELETON-v1.md`。
