@@ -90,6 +90,11 @@ export function InternalAiEditor({ embedUrl }: InternalAiEditorProps) {
     setIframeStatus("loaded");
   }
 
+  function onIframeError() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setIframeStatus("maybe_blocked");
+  }
+
   async function onSaveHandoff() {
     setSaving(true);
     setSaveMsg("");
@@ -402,9 +407,10 @@ export function InternalAiEditor({ embedUrl }: InternalAiEditorProps) {
       <section className="relative min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-amber-200/80 bg-zinc-900/5 shadow-inner lg:min-h-[72vh]">
         {iframeStatus === "maybe_blocked" && !dismissBlockedOverlay ? (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/95 p-6 text-center">
-            <p className="text-sm font-medium text-zinc-800">嵌入可能被目标站拒绝（X-Frame-Options）</p>
+            <p className="text-sm font-medium text-zinc-800">编辑器暂时无法在此加载</p>
             <p className="max-w-md text-xs text-zinc-600">
-              请点击「新窗口打开创作中心」在独立标签完成生图；完成后用左侧「回写登记」把任务 ID / 素材 URL 记入 FUNDAMENTAL。
+              目标站可能拒绝内嵌（X-Frame-Options / CSP），或网络暂时不可达。
+              请点击「新窗口打开创作中心」在独立标签完成生图，完成后用左侧「回写登记」把任务 ID / 素材 URL 记入 FUNDAMENTAL。
             </p>
             <a
               href={embedUrl}
@@ -439,6 +445,7 @@ export function InternalAiEditor({ embedUrl }: InternalAiEditorProps) {
           referrerPolicy="no-referrer-when-downgrade"
           allow="clipboard-read; clipboard-write; fullscreen"
           onLoad={onIframeLoad}
+          onError={onIframeError}
         />
       </section>
     </div>

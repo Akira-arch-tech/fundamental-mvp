@@ -253,6 +253,62 @@ async function runChecks() {
   }
 
   console.log(`PASS ${store}/orders/${orderId}`);
+
+  // --- 购物车 CRUD 链路 ---
+  // 先清空，防止上轮残留影响断言
+  await fetch(`${base}/api/cart`, { method: "DELETE" });
+
+  const cartAddRes = await fetch(`${base}/api/cart`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: "p1", qty: 2, added_from: "product" }),
+  });
+  if (!cartAddRes.ok) {
+    throw new Error(`POST /api/cart failed: ${cartAddRes.status}`);
+  }
+  const cartAddJson = await cartAddRes.json();
+  const cartItemId = cartAddJson.item?.cart_item_id;
+  if (!cartItemId) {
+    throw new Error("POST /api/cart missing cart_item_id");
+  }
+
+  const cartGetRes = await fetch(`${base}/api/cart`);
+  if (!cartGetRes.ok) {
+    throw new Error(`GET /api/cart failed: ${cartGetRes.status}`);
+  }
+  const cartGetJson = await cartGetRes.json();
+  if (!Array.isArray(cartGetJson.items) || cartGetJson.items.length === 0) {
+    throw new Error("GET /api/cart returned empty items after add");
+  }
+  if (typeof cartGetJson.total_amount !== "number") {
+    throw new Error("GET /api/cart missing total_amount");
+  }
+
+  const cartPatchRes = await fetch(`${base}/api/cart/${cartItemId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ qty: 3 }),
+  });
+  if (!cartPatchRes.ok) {
+    throw new Error(`PATCH /api/cart/${cartItemId} failed: ${cartPatchRes.status}`);
+  }
+  const cartPatchJson = await cartPatchRes.json();
+  if (cartPatchJson.item?.qty !== 3) {
+    throw new Error("PATCH /api/cart qty update did not apply");
+  }
+
+  const cartDelRes = await fetch(`${base}/api/cart/${cartItemId}`, { method: "DELETE" });
+  if (!cartDelRes.ok) {
+    throw new Error(`DELETE /api/cart/${cartItemId} failed: ${cartDelRes.status}`);
+  }
+
+  const cartEmptyRes = await fetch(`${base}/api/cart`);
+  const cartEmptyJson = await cartEmptyRes.json();
+  if ((cartEmptyJson.items ?? []).some((it) => it.cart_item_id === cartItemId)) {
+    throw new Error("cart item not removed after DELETE");
+  }
+
+  console.log("PASS cart CRUD flow");
 }
 
 async function main() {
