@@ -55,6 +55,7 @@ npx vercel deploy --prod --yes
 ```
 
 - **说明**：`.vercel/` 已在 `.gitignore` 中，每人本地各自 `link` 即可；与 GitHub `main` 的自动部署也应指向 **同一项目 fundamental-mvp**（在 Vercel → Project → Settings → Git 中确认）。
+- **当前线上默认域（可点）**：见 `docs/SITE-URLS-AND-NAV-v1.md` 中「当前 Vercel 可访问 origin」一节（以 Dashboard → Domains 为准，分配可能随时间变化）。
 
 ## 技术栈
 
