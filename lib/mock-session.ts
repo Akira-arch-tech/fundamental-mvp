@@ -9,12 +9,17 @@ export interface MockSessionPayload {
   role: OperatorRole;
 }
 
-// Per-process fallback when SESSION_SECRET is not set.
-// Sessions signed with this are valid only for the current process lifetime (dev-only).
-const _fallbackSecret = `fdm_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+// Production last resort when SESSION_SECRET is unset (single-instance demos only).
+const _ephemeralProdFallback = `fdm_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
+/** 与 Next dev 多 worker 兼容：未设置 SESSION_SECRET 时使用固定 dev 密钥，避免登录与校验落到不同进程时验签失败。 */
+const _devStableFallback = "fdm_dev_mock_session_not_for_production________";
 
 function getSecret(): string {
-  return process.env.SESSION_SECRET?.trim() || _fallbackSecret;
+  const fromEnv = process.env.SESSION_SECRET?.trim();
+  if (fromEnv) return fromEnv;
+  if (process.env.NODE_ENV !== "production") return _devStableFallback;
+  return _ephemeralProdFallback;
 }
 
 function sign(data: string, secret: string): string {

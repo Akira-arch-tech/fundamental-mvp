@@ -1,8 +1,10 @@
 # AIGC 买家端 API — MVP 骨架（v1）
 
+> **已过时**：当前实现与契约以 **[AIGC-API-MVP-SKELETON-v2.md](./AIGC-API-MVP-SKELETON-v2.md)** 为准（`queued`、参考图上传、多 `mode`、DB/Cron 等）。下文保留作历史对照。
+
 内存任务存储 + 三个 HTTP 端点，供 `CustomizeEditor` 后续接 UI。**不调用真实模型**；候选图为 `picsum.photos` 占位。
 
-> 实现代码：`lib/aigc-types.ts`、`lib/aigc-generation-store.ts`、`app/api/aigc/generations/*`
+> 实现代码（当前以 v2 为准）：`lib/aigc-types.ts`、`lib/aigc-job-service.ts`、`app/api/aigc/generations/*`
 
 ## 限制（必读）
 
@@ -98,7 +100,7 @@
 
 ## 确认窗时长
 
-与政策一致：**10 分钟**（`lib/aigc-generation-store.ts` 内 `CONFIRM_WINDOW_MS`）。
+与政策一致：**10 分钟**（`lib/aigc-job-service.ts` 内 `CONFIRM_WINDOW_MS`）。
 
 ## 本地 curl 示例
 

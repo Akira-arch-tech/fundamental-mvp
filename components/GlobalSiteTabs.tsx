@@ -4,15 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/", key: "home", label: "首页", title: "营销首页（日文落地）" },
+  { href: "/", key: "home", label: "トップ", title: "营销落地（日文）" },
   {
     href: "/shop",
     key: "store",
-    label: "商店",
-    title: "商店 demo：/shop 入口（跳转推し活顶）与 /shop/* 店内流程",
+    label: "ストア",
+    title: "デモ店：/shop と店内フロー",
   },
-  { href: "/policies", key: "policies", label: "政策", title: "政策页" },
-  { href: "/b/login", key: "back", label: "后台", title: "后台登录（中文）" },
+  { href: "/policies", key: "policies", label: "ポリシー", title: "政策页" },
+  { href: "/b/login", key: "back", label: "管理", title: "后台登录" },
 ] as const;
 
 function tabActive(pathname: string, key: (typeof TABS)[number]["key"]): boolean {

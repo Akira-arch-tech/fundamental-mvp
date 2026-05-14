@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/integration-worker",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/aigc-worker",
+      "schedule": "0 * * * *"
     }
   ]
 }

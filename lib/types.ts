@@ -110,6 +110,15 @@ export interface CustomizationCreateInput {
   estimated_dpi?: number;
 }
 
+/** `customizations.design_data`（PostgreSQL jsonb） */
+export type CustomizationDesignStored = Pick<
+  CustomizationCreateInput,
+  "text_layers" | "color_layers" | "user_images"
+> & {
+  transform_matrix?: number[];
+  estimated_dpi?: number;
+};
+
 export interface CustomizationRecord extends CustomizationCreateInput {
   customization_id: string;
   preview_url: string;

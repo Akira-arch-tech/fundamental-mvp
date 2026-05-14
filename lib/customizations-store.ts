@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getDb } from "@/lib/db/client";
+import { insertCustomization, selectCustomizationById } from "@/lib/db/customizations-repository";
 import type {
   CustomizationCreateInput,
   CustomizationRecord,
@@ -66,6 +68,11 @@ async function writeStore(data: Record<string, CustomizationRecord>) {
 
 export async function saveCustomization(input: CustomizationCreateInput) {
   const record = createCustomization(input);
+  const db = getDb();
+  if (db) {
+    await insertCustomization(db, record);
+    return record;
+  }
   const store = await readStore();
   store[record.customization_id] = record;
   await writeStore(store);
@@ -73,6 +80,11 @@ export async function saveCustomization(input: CustomizationCreateInput) {
 }
 
 export async function getCustomization(customizationId: string) {
+  const db = getDb();
+  if (db) {
+    const fromDb = await selectCustomizationById(db, customizationId);
+    if (fromDb) return fromDb;
+  }
   const store = await readStore();
   return store[customizationId];
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AiArtifactRecord } from "@/lib/ai-artifacts-store";
-import { AIGC_GENERATIONS_API_PATH } from "@/lib/aigc-shared-constants";
+import { AIGC_GENERATIONS_API_PATH, AIGC_REFERENCE_ASSETS_API_PATH } from "@/lib/aigc-shared-constants";
 import { storePath } from "@/lib/storefront-constants";
 
 const IFRAME_LOAD_MS = 8000;
@@ -229,7 +229,8 @@ export function InternalAiEditor({ embedUrl }: InternalAiEditorProps) {
         <div className="rounded-lg border border-sky-100 bg-sky-50/90 px-3 py-2 text-[11px] leading-relaxed text-sky-950">
           <span className="font-semibold">与买家店契约对齐：</span>
           买家在 <code className="rounded bg-white/90 px-0.5">/shop/customize/…</code> 走公开 BFF{" "}
-          <code className="break-all rounded bg-white/90 px-0.5">{AIGC_GENERATIONS_API_PATH}</code>
+          <code className="break-all rounded bg-white/90 px-0.5">{AIGC_GENERATIONS_API_PATH}</code>、参考图上传{" "}
+          <code className="break-all rounded bg-white/90 px-0.5">{AIGC_REFERENCE_ASSETS_API_PATH}</code>{" "}
           （无需 <code className="rounded bg-white/90 px-0.5">fdm_session</code>
           ）；本页登记仍使用 <code className="rounded bg-white/90 px-0.5">/api/backoffice/*</code>。
         </div>

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { recordAigcLifecycleEvent } from "@/lib/aigc-lifecycle";
 import { products } from "@/data/seed";
 import { getDb } from "@/lib/db/client";
 import {
@@ -169,13 +170,28 @@ export async function updateOrderStatus(
 ): Promise<boolean> {
   const db = getDb();
   if (db) {
-    return updateOrderStatusInDb(db, orderId, status);
+    const ok = await updateOrderStatusInDb(db, orderId, status);
+    if (ok && status === "shipped") {
+      void recordAigcLifecycleEvent({
+        order_id: orderId,
+        kind: "order_shipped",
+        note: "PRD v0.3: 印前拉取后应清理 confirmed 临时图；此处仅写审计日志。",
+      });
+    }
+    return ok;
   }
   const store = await readStore();
   const o = store[orderId];
   if (!o) return false;
   o.status = status;
   await writeStore(store);
+  if (status === "shipped") {
+    void recordAigcLifecycleEvent({
+      order_id: orderId,
+      kind: "order_shipped",
+      note: "PRD v0.3: 印前拉取后应清理 confirmed 临时图；此处仅写审计日志。",
+    });
+  }
   return true;
 }
 

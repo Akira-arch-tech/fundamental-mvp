@@ -1,0 +1,15 @@
+# 本地 Postgres（Pillar 1 / 生产形态验证用）。勿提交含生产密钥的 override。
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: fdm
+      POSTGRES_PASSWORD: fdm
+      POSTGRES_DB: fdm
+    volumes:
+      - fdm_pg_data:/var/lib/postgresql/data
+
+volumes:
+  fdm_pg_data:

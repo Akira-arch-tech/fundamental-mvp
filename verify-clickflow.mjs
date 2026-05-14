@@ -14,7 +14,6 @@ const checks = [
     path: `${store}/customize/p1`,
     mustIncludeAll: ["デザインエディタ", "AI 画像"],
   },
-  { path: `${store}/checkout`, mustInclude: "チェックアウト" },
 ];
 
 function sleep(ms) {
@@ -37,7 +36,35 @@ function sessionCookieHeader(res) {
   return "";
 }
 
+/** 与 `scripts/seed-users.ts` 对齐：`VERIFY_CLICKFLOW_WITH_DB=1` 时用邮箱密码登录。 */
+const VERIFY_SEED_EMAIL_BY_ROLE = {
+  admin: "verify-admin@fundamental.local",
+  ops: "verify-ops@fundamental.local",
+  customer_service: "verify-cs@fundamental.local",
+};
+
 async function mockLogin(role, displayName) {
+  if (process.env.VERIFY_CLICKFLOW_WITH_DB === "1") {
+    const email = VERIFY_SEED_EMAIL_BY_ROLE[role];
+    if (!email) {
+      throw new Error(`db login: unknown role ${role}`);
+    }
+    const password = process.env.VERIFY_SEED_PASSWORD || "FundamentalVerify#2026";
+    const res = await fetch(`${base}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`db login as ${role} failed ${res.status}: ${t.slice(0, 240)}`);
+    }
+    const cookie = sessionCookieHeader(res);
+    if (!cookie) {
+      throw new Error("db login did not return fdm_session cookie");
+    }
+    return cookie;
+  }
   const res = await fetch(`${base}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -93,7 +120,8 @@ async function runChecks() {
     body: JSON.stringify({
       product_id: "p1",
       prompt: "verify-clickflow",
-      reference_asset_count: 0,
+      mode: "txt2img",
+      candidate_count: 2,
     }),
   });
   if (!aigcCreate.ok) {
@@ -101,16 +129,32 @@ async function runChecks() {
   }
   const aigcCreateJson = await aigcCreate.json();
   if (!aigcCreateJson.job_id) throw new Error("AIGC create missing job_id");
-  if (aigcCreateJson.status !== "ready") {
+  if (aigcCreateJson.status !== "queued") {
     throw new Error(`AIGC create unexpected status ${aigcCreateJson.status}`);
   }
-  const aigcGet = await fetch(`${base}/api/aigc/generations/${aigcCreateJson.job_id}`);
-  if (!aigcGet.ok) throw new Error(`GET /api/aigc/generations/[jobId] failed ${aigcGet.status}`);
-  const aigcGetJson = await aigcGet.json();
-  if (aigcGetJson.status !== "ready" || !Array.isArray(aigcGetJson.candidates) || aigcGetJson.candidates.length === 0) {
-    throw new Error("AIGC job not ready with candidates");
+  const jobId = aigcCreateJson.job_id;
+  let aigcGetJson;
+  for (let i = 0; i < 50; i++) {
+    const aigcGet = await fetch(`${base}/api/aigc/generations/${jobId}`);
+    if (!aigcGet.ok) throw new Error(`GET /api/aigc/generations/[jobId] failed ${aigcGet.status}`);
+    aigcGetJson = await aigcGet.json();
+    if (aigcGetJson.status === "ready" && Array.isArray(aigcGetJson.candidates) && aigcGetJson.candidates.length > 0) {
+      break;
+    }
+    if (aigcGetJson.status === "failed") {
+      throw new Error(`AIGC job failed: ${aigcGetJson.error?.message ?? "unknown"}`);
+    }
+    await sleep(150);
   }
-  const aigcConfirm = await fetch(`${base}/api/aigc/generations/${aigcCreateJson.job_id}/confirm`, {
+  if (
+    !aigcGetJson ||
+    aigcGetJson.status !== "ready" ||
+    !Array.isArray(aigcGetJson.candidates) ||
+    aigcGetJson.candidates.length === 0
+  ) {
+    throw new Error("AIGC job not ready with candidates after polling");
+  }
+  const aigcConfirm = await fetch(`${base}/api/aigc/generations/${jobId}/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ candidate_index: 0 }),
@@ -124,6 +168,91 @@ async function runChecks() {
   }
   console.log("PASS /api/aigc/generations (create + get + confirm)");
 
+  const miniPngB64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const pngBuf = Buffer.from(miniPngB64, "base64");
+  const fd1 = new FormData();
+  fd1.append("files", new Blob([pngBuf], { type: "image/png" }), "ref1.png");
+  const up1 = await fetch(`${base}/api/aigc/reference-assets`, { method: "POST", body: fd1 });
+  if (!up1.ok) throw new Error(`POST reference-assets failed ${up1.status}`);
+  const up1Json = await up1.json();
+  const id1 = up1Json.assets?.[0]?.asset_id;
+  if (!id1) throw new Error("reference-assets missing asset_id");
+
+  const img2 = await fetch(`${base}/api/aigc/generations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      product_id: "p1",
+      prompt: "clickflow-img2img",
+      mode: "img2img",
+      reference_asset_ids: [id1],
+      candidate_count: 1,
+    }),
+  });
+  if (!img2.ok) throw new Error(`POST img2img generations failed ${img2.status}`);
+  const img2Json = await img2.json();
+  const jobImg2 = img2Json.job_id;
+  let stImg2;
+  for (let i = 0; i < 50; i++) {
+    const g = await fetch(`${base}/api/aigc/generations/${jobImg2}`);
+    stImg2 = await g.json();
+    if (stImg2.status === "ready" && stImg2.candidates?.length) break;
+    if (stImg2.status === "failed") throw new Error(`img2img failed: ${stImg2.error?.message}`);
+    await sleep(150);
+  }
+  if (!stImg2 || stImg2.status !== "ready") throw new Error("img2img job not ready");
+  console.log("PASS /api/aigc/reference-assets + img2img");
+
+  const fd2 = new FormData();
+  fd2.append("files", new Blob([pngBuf], { type: "image/png" }), "a.png");
+  fd2.append("files", new Blob([pngBuf], { type: "image/png" }), "b.png");
+  const up2 = await fetch(`${base}/api/aigc/reference-assets`, { method: "POST", body: fd2 });
+  if (!up2.ok) throw new Error(`POST reference-assets (2) failed ${up2.status}`);
+  const up2Json = await up2.json();
+  const ids2 = (up2Json.assets ?? []).map((a) => a.asset_id).filter(Boolean);
+  if (ids2.length < 2) throw new Error("expected 2 asset ids for multi_ref");
+  const multi = await fetch(`${base}/api/aigc/generations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      product_id: "p1",
+      prompt: "clickflow-multi-ref",
+      mode: "multi_ref",
+      reference_asset_ids: ids2,
+      references: [
+        { asset_id: ids2[0], role: "subject" },
+        { asset_id: ids2[1], role: "style" },
+      ],
+      candidate_count: 1,
+    }),
+  });
+  if (!multi.ok) throw new Error(`POST multi_ref generations failed ${multi.status}`);
+  const multiJson = await multi.json();
+  const jobM = multiJson.job_id;
+  let stM;
+  for (let i = 0; i < 50; i++) {
+    const g = await fetch(`${base}/api/aigc/generations/${jobM}`);
+    stM = await g.json();
+    if (stM.status === "ready" && stM.candidates?.length) break;
+    if (stM.status === "failed") throw new Error(`multi_ref failed: ${stM.error?.message}`);
+    await sleep(150);
+  }
+  if (!stM || stM.status !== "ready") throw new Error("multi_ref job not ready");
+  console.log("PASS /api/aigc/generations multi_ref");
+
+  const cronKey = process.env.INTEGRATION_WORKER_KEY || "clickflow_verify_worker";
+  const cronRes = await fetch(`${base}/api/cron/aigc-worker`, {
+    headers: { Authorization: `Bearer ${cronKey}` },
+  });
+  if (!cronRes.ok) {
+    throw new Error(`GET /api/cron/aigc-worker failed ${cronRes.status}`);
+  }
+  const cronJson = await cronRes.json();
+  if (typeof cronJson.processed !== "number") {
+    throw new Error("cron aigc-worker missing processed count");
+  }
+  console.log("PASS /api/cron/aigc-worker");
   const customizationRes = await fetch(`${base}/api/customizations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -140,6 +269,41 @@ async function runChecks() {
   }
   const customizationJson = await customizationRes.json();
   const customizationId = customizationJson.customization_id;
+
+  const checkoutPageRes = await fetch(
+    `${base}${store}/checkout?customization_id=${encodeURIComponent(customizationId)}`,
+  );
+  if (!checkoutPageRes.ok) {
+    throw new Error(`checkout with customization_id returned ${checkoutPageRes.status}`);
+  }
+  const checkoutHtml = await checkoutPageRes.text();
+  if (!checkoutHtml.includes("ご注文手続き")) {
+    throw new Error("checkout page missing ご注文手続き (valid customization path)");
+  }
+  if (!checkoutHtml.includes("デザインID（控え）")) {
+    throw new Error("checkout page missing design id block");
+  }
+
+  const checkoutCamelRes = await fetch(
+    `${base}${store}/checkout?customizationId=${encodeURIComponent(customizationId)}`,
+  );
+  if (!checkoutCamelRes.ok) {
+    throw new Error(`checkout with customizationId (camel) returned ${checkoutCamelRes.status}`);
+  }
+  const checkoutCamelHtml = await checkoutCamelRes.text();
+  if (!checkoutCamelHtml.includes("ご注文手続き")) {
+    throw new Error("checkout camelCase query param not accepted");
+  }
+  console.log("PASS /shop/checkout (customization_id + customizationId + preview API)");
+
+  const previewMetaRes = await fetch(`${base}/api/customizations/${customizationId}/preview`);
+  if (!previewMetaRes.ok) {
+    throw new Error(`GET customization preview failed: ${previewMetaRes.status}`);
+  }
+  const previewMetaJson = await previewMetaRes.json();
+  if (previewMetaJson.customization_id !== customizationId) {
+    throw new Error("preview JSON customization_id mismatch");
+  }
 
   const orderRes = await fetch(`${base}/api/orders`, {
     method: "POST",
@@ -376,6 +540,7 @@ async function main() {
       env: {
         ...process.env,
         NEXT_DISABLE_TURBOPACK: "1",
+        INTEGRATION_WORKER_KEY: process.env.INTEGRATION_WORKER_KEY || "clickflow_verify_worker",
         // 默认同 `isDatabaseEnabled()` 对齐：无 DB 时用 Mock Cookie 跑通后台 API；需测真实 DB 时设 VERIFY_CLICKFLOW_WITH_DB=1
         ...(process.env.VERIFY_CLICKFLOW_WITH_DB === "1" ? {} : { DATABASE_URL: "" }),
       },

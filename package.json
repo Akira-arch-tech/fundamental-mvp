@@ -1,5 +1,5 @@
 {
-  "name": "fundamental-originalprint-clone",
+  "name": "fundamental-mvp-shop",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,13 +10,19 @@
     "dev:clean": "node scripts/assert-next-app-root.mjs && rm -rf .next && NEXT_DISABLE_TURBOPACK=1 next dev",
     "verify:clickflow": "node verify-clickflow.mjs",
     "verify:mvp": "node verify-mvp.mjs",
+    "smoke:aigc:fal": "node scripts/aigc-smoke-fal.mjs",
+    "smoke:aigc:dashscope": "node scripts/aigc-smoke-dashscope.mjs",
+    "smoke:aigc:ttapi": "node scripts/aigc-smoke-ttapi.mjs",
+    "smoke:pillar2": "node scripts/pillar2-pov-placeholder.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx scripts/seed-users.ts"
+    "db:seed": "tsx scripts/seed-users.ts",
+    "verify:with-db": "npm run db:seed && VERIFY_CLICKFLOW_WITH_DB=1 node verify-clickflow.mjs && VERIFY_CLICKFLOW_WITH_DB=1 node verify-mvp.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^1.1.1",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.2",
     "next": "^16.2.6",
@@ -34,6 +40,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.5.0",
+    "dotenv": "^16.4.7",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "^16.2.6",

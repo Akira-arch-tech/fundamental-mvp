@@ -48,7 +48,31 @@ async function waitUntilReady(timeoutMs = 60_000) {
   throw new Error("dev server did not become ready within 60s");
 }
 
+/** 与 `scripts/seed-users.ts` 对齐：`VERIFY_CLICKFLOW_WITH_DB=1` 时用邮箱密码登录。 */
+const VERIFY_SEED_EMAIL_BY_ROLE = {
+  admin: "verify-admin@fundamental.local",
+  ops: "verify-ops@fundamental.local",
+  customer_service: "verify-cs@fundamental.local",
+};
+
 async function mockLogin(role, displayName) {
+  if (process.env.VERIFY_CLICKFLOW_WITH_DB === "1") {
+    const email = VERIFY_SEED_EMAIL_BY_ROLE[role];
+    if (!email) throw new Error(`db login: unknown role ${role}`);
+    const password = process.env.VERIFY_SEED_PASSWORD || "FundamentalVerify#2026";
+    const res = await fetch(`${base}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`db login failed ${res.status}: ${t.slice(0, 240)}`);
+    }
+    const c = sessionCookieHeader(res);
+    if (!c) throw new Error("no session cookie after db login");
+    return c;
+  }
   const res = await fetch(`${base}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -72,6 +96,7 @@ async function main() {
         NEXT_DISABLE_TURBOPACK: "1",
         ERP_WEBHOOK_SECRET: ERP_SECRET,
         INTEGRATION_WORKER_KEY: WORKER_KEY,
+        ...(process.env.VERIFY_CLICKFLOW_WITH_DB === "1" ? {} : { DATABASE_URL: "" }),
       },
     },
   );
@@ -95,6 +120,18 @@ async function main() {
     });
     if (!customizationRes.ok) throw new Error("POST /api/customizations failed");
     const customizationJson = await customizationRes.json();
+    const customizationId = customizationJson.customization_id;
+
+    const checkoutPageRes = await fetch(
+      `${base}${store}/checkout?customization_id=${encodeURIComponent(customizationId)}`,
+    );
+    if (!checkoutPageRes.ok) {
+      throw new Error(`checkout with customization_id returned ${checkoutPageRes.status}`);
+    }
+    const checkoutHtml = await checkoutPageRes.text();
+    if (!checkoutHtml.includes("ご注文手続き")) {
+      throw new Error("checkout page missing ご注文手続き");
+    }
 
     const orderRes = await fetch(`${base}/api/orders`, {
       method: "POST",
@@ -237,6 +274,13 @@ async function main() {
     if (trJson.trace_id !== "req_smoke_nonexistent" || !trJson.requestId)
       throw new Error("trace response missing trace_id or requestId");
     if (!Array.isArray(trJson.integration_jobs)) throw new Error("trace.integration_jobs must be array");
+
+    const cronA = await fetch(`${base}/api/cron/aigc-worker`, {
+      headers: { Authorization: `Bearer ${WORKER_KEY}` },
+    });
+    if (!cronA.ok) throw new Error(`GET /api/cron/aigc-worker failed: ${cronA.status}`);
+    const cronAJson = await cronA.json();
+    if (typeof cronAJson.processed !== "number") throw new Error("aigc-worker response missing processed");
 
     console.log("MVP verification passed (W12/W13 smoke).");
   } finally {

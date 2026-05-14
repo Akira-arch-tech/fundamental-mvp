@@ -5,7 +5,8 @@ import { RemoteSafeFillImage } from "@/components/RemoteSafeImage";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AigcCandidate } from "@/lib/aigc-types";
-import { AIGC_GENERATIONS_API_PATH, AIGC_MAX_REFERENCE_ASSET_COUNT } from "@/lib/aigc-shared-constants";
+import { AIGC_GENERATIONS_API_PATH, AIGC_MAX_CANDIDATE_COUNT, AIGC_MAX_REFERENCE_ASSET_COUNT, AIGC_MIN_CANDIDATE_COUNT, AIGC_REFERENCE_ASSETS_API_PATH } from "@/lib/aigc-shared-constants";
+import { writeFdmAigcLastToWindow } from "@/lib/shop-aigc-persist";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
 
@@ -133,7 +134,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [cartMsg, setCartMsg] = useState("");
   const [saved, setSaved] = useState<SaveResult | null>(null);
 
-  /** 买家店 AIGC（MVP）：与 `POST /api/aigc/generations` 闭环；参考图数量仅占位，multipart 后续再接 */
+  /** 买家店 AIGC：`multipart` 参考图 → `POST /api/aigc/generations`（txt2img / img2img / multi_ref） */
   const [aigcPrompt, setAigcPrompt] = useState("");
   const [aigcRefFiles, setAigcRefFiles] = useState<File[]>([]);
   const [aigcJobId, setAigcJobId] = useState<string | null>(null);
@@ -144,6 +145,9 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [aigcBusy, setAigcBusy] = useState(false);
   const [aigcMsg, setAigcMsg] = useState("");
   const [aigcErr, setAigcErr] = useState("");
+  const [aigcMultiRef, setAigcMultiRef] = useState(false);
+  const [aigcCandidateCount, setAigcCandidateCount] = useState(2);
+  const [aigcNegative, setAigcNegative] = useState("");
   const [aigcTick, setAigcTick] = useState(0);
   const aigcPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -737,6 +741,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       status?: string;
       candidates?: AigcCandidate[];
       confirm_deadline_at?: string;
+      warnings?: string[];
       error?: { code?: string; message?: string };
       message?: string;
     };
@@ -759,27 +764,81 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setAigcCandidates([]);
     setAigcPickIndex(0);
     try {
+      const trimmedPrompt = aigcPrompt.trim();
+      let reference_asset_ids: string[] = [];
+
+      if (aigcRefFiles.length > 0) {
+        const fd = new FormData();
+        for (const f of aigcRefFiles) fd.append("files", f);
+        const up = await fetch(AIGC_REFERENCE_ASSETS_API_PATH, { method: "POST", body: fd });
+        const upJson = (await up.json()) as { assets?: { asset_id: string }[]; message?: string };
+        if (!up.ok) throw new Error(upJson.message ?? "参考画像のアップロードに失敗しました");
+        reference_asset_ids = (upJson.assets ?? []).map((a) => a.asset_id).filter(Boolean);
+        if (reference_asset_ids.length === 0) throw new Error("asset_id が返りませんでした");
+      }
+
+      const cc = Math.min(
+        AIGC_MAX_CANDIDATE_COUNT,
+        Math.max(AIGC_MIN_CANDIDATE_COUNT, Math.floor(aigcCandidateCount)),
+      );
+
+      let mode: "txt2img" | "img2img" | "multi_ref" = "txt2img";
+      let references:
+        | { asset_id: string; role: "subject" | "style" | "layout" | "other" }[]
+        | undefined;
+      if (aigcMultiRef && reference_asset_ids.length >= 2) {
+        mode = "multi_ref";
+        references = reference_asset_ids.map((asset_id, i) => ({
+          asset_id,
+          role: (["subject", "style", "layout", "other"] as const)[i % 4],
+        }));
+      } else if (reference_asset_ids.length > 0) {
+        mode = "img2img";
+      }
+
+      if (mode === "txt2img" && !trimmedPrompt) {
+        throw new Error("文生图（txt2img）ではプロンプトが必須です。");
+      }
+
+      const body: Record<string, unknown> = {
+        product_id: product.product_id,
+        prompt: trimmedPrompt || undefined,
+        negative_prompt: aigcNegative.trim() || undefined,
+        candidate_count: cc,
+        reference_asset_ids: reference_asset_ids.length ? reference_asset_ids : undefined,
+        mode,
+      };
+      if (references) body.references = references;
+
       const res = await fetch(AIGC_GENERATIONS_API_PATH, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product_id: product.product_id,
-          prompt: aigcPrompt.trim() || undefined,
-          reference_asset_count: aigcRefFiles.length,
-        }),
+        body: JSON.stringify(body),
       });
-      const json = (await res.json()) as { job_id?: string; message?: string; code?: string };
+      const json = (await res.json()) as {
+        job_id?: string;
+        message?: string;
+        code?: string;
+        status?: string;
+        warnings?: string[];
+      };
       if (!res.ok) throw new Error(json.message ?? json.code ?? "生成リクエストに失敗しました");
       const jobId = json.job_id;
       if (!jobId) throw new Error("job_id がありません");
       setAigcJobId(jobId);
+      if (json.warnings?.length) setAigcMsg(json.warnings.join(" "));
 
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 60; i++) {
         const { ok, json: j } = await fetchAigcJob(jobId);
         if (!ok) throw new Error(j.message ?? "ジョブ取得に失敗しました");
         const st = j.status ?? "";
         setAigcStatus(st);
         setAigcDeadlineIso(j.confirm_deadline_at ?? null);
+        if (st === "queued" || st === "processing") {
+          setAigcMsg(
+            j.warnings?.length ? `${j.warnings.join(" ")} — 生成中…` : "生成中…",
+          );
+        }
         if (st === "ready" && Array.isArray(j.candidates) && j.candidates.length > 0) {
           setAigcCandidates(j.candidates);
           setAigcPickIndex(0);
@@ -797,7 +856,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           setAigcBusy(false);
           return;
         }
-        await new Promise((r) => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 200));
       }
       setAigcErr("タイムアウト：候補の取得に失敗しました");
     } catch (e) {
@@ -826,6 +885,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       if (!res.ok) throw new Error(json.message ?? json.code ?? "確定に失敗しました");
       const url = json.selected?.url;
       if (!url) throw new Error("候補URLがありません");
+      writeFdmAigcLastToWindow({ product_id: product.product_id, url, t: Date.now() });
       setAigcStatus(json.status ?? "confirmed");
       const id = `layer_img_aigc_${Date.now()}`;
       const newLayer: ImageLayer = {
@@ -1047,7 +1107,9 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           <h2 className="text-sm font-bold text-violet-900">AI 画像（MVP デモ）</h2>
           <p className="mt-1 text-xs text-zinc-600">
             参考画像は最大 {AIGC_MAX_REFERENCE_ASSET_COUNT}{" "}
-            枚まで選択できます（現状は件数のみサーバーに送り、実ファイルは今後 multipart 対応）。
+            枚まで。選択後は <code className="rounded bg-white/80 px-0.5">{AIGC_REFERENCE_ASSETS_API_PATH}</code>{" "}
+            に multipart アップロードし、続けて <code className="rounded bg-white/80 px-0.5">{AIGC_GENERATIONS_API_PATH}</code>{" "}
+            で <strong>txt2img / img2img / multi_ref</strong> ジョブを作成します（サーバーは mock provider）。
           </p>
           <label className="mt-2 block">
             <span className="mb-1 block text-xs font-medium text-zinc-700">参考画像（複数可）</span>
@@ -1059,13 +1121,24 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
               className="block w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs file:mr-2 file:rounded file:border-0 file:bg-violet-100 file:px-2 file:py-1"
             />
             {aigcRefFiles.length > 0 ? (
-              <span className="mt-1 block text-xs text-zinc-500">
-                選択中: {aigcRefFiles.length} 枚（API へ reference_asset_count として送信）
-              </span>
+              <span className="mt-1 block text-xs text-zinc-500">選択中: {aigcRefFiles.length} 枚</span>
             ) : null}
           </label>
+          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={aigcMultiRef}
+              disabled={aigcRefFiles.length < 2}
+              onChange={(e) => setAigcMultiRef(e.target.checked)}
+            />
+            <span className={aigcRefFiles.length < 2 ? "text-zinc-400" : ""}>
+              多图组合（multi_ref、2 枚以上で有効・角色按 subject/style/… 轮换）
+            </span>
+          </label>
           <label className="mt-2 block">
-            <span className="mb-1 block text-xs font-medium text-zinc-700">プロンプト（任意）</span>
+            <span className="mb-1 block text-xs font-medium text-zinc-700">
+              プロンプト（文生图で必須／参考のみの图生图では任意）
+            </span>
             <textarea
               value={aigcPrompt}
               onChange={(e) => setAigcPrompt(e.target.value)}
@@ -1074,6 +1147,31 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
               placeholder="例：推しの雰囲気に合う淡い背景"
               className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-violet-500"
             />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-xs font-medium text-zinc-700">ネガティブプロンプト（任意）</span>
+            <input
+              value={aigcNegative}
+              onChange={(e) => setAigcNegative(e.target.value)}
+              maxLength={2000}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-violet-500"
+              placeholder="例：低解像度、テキスト"
+            />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-xs font-medium text-zinc-700">
+              候補枚数（{AIGC_MIN_CANDIDATE_COUNT}–{AIGC_MAX_CANDIDATE_COUNT}）
+            </span>
+            <input
+              type="range"
+              min={AIGC_MIN_CANDIDATE_COUNT}
+              max={AIGC_MAX_CANDIDATE_COUNT}
+              step={1}
+              value={aigcCandidateCount}
+              onChange={(e) => setAigcCandidateCount(Number(e.target.value))}
+              className="w-full"
+            />
+            <span className="text-xs text-zinc-500">{aigcCandidateCount} 枚</span>
           </label>
           <div className="mt-2 flex flex-wrap gap-2">
             <button

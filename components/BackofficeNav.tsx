@@ -8,7 +8,10 @@ import { storePath } from "@/lib/storefront-constants";
 const items = [
   { href: "/b", label: "概览" },
   { href: "/b/orders", label: "订单工作台" },
+  { href: "/b/analytics", label: "报表" },
   { href: "/b/settings", label: "店铺设置" },
+  { href: "/b/store-profiles", label: "多店演示" },
+  { href: "/b/spec-templates", label: "规格模板" },
   { href: "/b/ai-editor", label: "AI 编辑器" },
   { href: "/b/exceptions", label: "异常中心" },
   { href: "/b/crm", label: "CRM 记录" },
@@ -33,7 +36,9 @@ export function BackofficeNav() {
             ? pathForActive === "/b"
             : href === "/b/orders"
               ? pathForActive.startsWith("/b/orders")
-              : pathForActive === href || pathForActive.startsWith(`${href}/`));
+              : href === "/b/analytics"
+                ? pathForActive.startsWith("/b/analytics")
+                : pathForActive === href || pathForActive.startsWith(`${href}/`));
         return (
           <Link
             key={href}

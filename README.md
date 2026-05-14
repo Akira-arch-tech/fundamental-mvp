@@ -15,7 +15,8 @@ FUNDAMENTAL 的 **定制商品平台 workspace**（W1–W13 / **M3**：含 **对
 - 加购与编辑器方案：`docs/CUSTOM-EDITOR-AND-CART-PLAN-v1.md`
 - 站点 URL 与全站 Tab 导航：`docs/SITE-URLS-AND-NAV-v1.md`
 - 买家店 AIGC 能力与页面差距说明：`docs/AIGC-STOREFRONT-GAP-v1.md`
-- AIGC 买家端 API（MVP 骨架）：`docs/AIGC-API-MVP-SKELETON-v1.md`
+- AIGC 买家端 API（MVP 骨架）：`docs/AIGC-API-MVP-SKELETON-v2.md`（v1 见同目录 `*-v1.md` 历史对照）
+- 真模型烟测（需自备密钥）：`npm run smoke:aigc:fal` / `npm run smoke:aigc:ttapi`
 
 ## 开发
 
@@ -32,9 +33,18 @@ npm run dev
 
 **W10**：顶栏「后台登录」进入 `/b/login`，会话写入 Cookie；订单页异常审核按钮与 `PATCH .../exceptions/{id}` 均以服务端会话角色为准，不再手工选角色。
 
-**W11**：配置 `DATABASE_URL` 后订单与异常落 PostgreSQL；登录为邮箱密码 + `sessions` 表；`/b/orders`、`/b/exceptions` 为后台工作台。详见根目录 `docker-compose.yml` 与 `.env.example`。
+**W11**：配置 `DATABASE_URL` 后订单与异常落 PostgreSQL；登录为邮箱密码 + `sessions` 表；`/b/orders`、`/b/exceptions` 为后台工作台。本地库见本目录 **`docker-compose.yml`**；根目录 `.env.example` 为环境变量说明。
 
 **W12–W13**：`/b/integrations` 查看对接任务与告警；`POST /api/integrations/erp/webhook`（`ERP_WEBHOOK_SECRET`）；`GET /api/backoffice/audit-export`（admin）。验收：`npm run verify:mvp`。
+
+## 本地 Postgres（Pillar 1 / 生产形态验库）
+
+1. **`docker compose up -d`**（本目录 [docker-compose.yml](docker-compose.yml)，端口 **5433**）。
+2. **`export DATABASE_URL=postgresql://fdm:fdm@127.0.0.1:5433/fdm`**（Neon/RDS 则换成你的连接串，勿提交 Git）。
+3. **`npm run db:push`** 首次建表；若已有库仅缺定制表，可用 **`drizzle/add_customizations.sql`**。
+4. **`npm run db:seed`**（[scripts/seed-users.ts](scripts/seed-users.ts)；默认密码 **`FundamentalVerify#2026`**，可用 **`VERIFY_SEED_PASSWORD`** 覆盖）。
+5. **`npm run verify:with-db`**（需第 2 步同一 shell 已导出 `DATABASE_URL`）。
+6. 浏览器：`npm run dev` → 定制保存 → 带 `customization_id` 的结账 → demo 下单；SQL：`SELECT customization_id, product_id, status, created_at FROM customizations ORDER BY created_at DESC LIMIT 5`。
 
 ## Vercel：只关联 fundamental-mvp
 

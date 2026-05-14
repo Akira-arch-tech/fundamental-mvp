@@ -175,6 +175,14 @@ export default async function InternalOrderOpsPage({
               >
                 下载 prepress-metadata.json →
               </a>
+              <a
+                href={`/api/backoffice/orders/${order.order_id}/prepress-bundle`}
+                className="mt-2 ml-4 inline-flex text-xs font-medium text-[#c2410c] underline-offset-2 hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                印前 bundle 清单（JSON）→
+              </a>
             </div>
           </div>
 

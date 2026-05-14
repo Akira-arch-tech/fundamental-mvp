@@ -12,7 +12,18 @@ export default async function CheckoutPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const customizationId = typeof sp.customization_id === "string" ? sp.customization_id : "";
+  const snake = sp.customization_id;
+  const camel = sp.customizationId;
+  const customizationId =
+    typeof snake === "string"
+      ? snake
+      : typeof camel === "string"
+        ? camel
+        : Array.isArray(snake) && snake[0]
+          ? String(snake[0])
+          : Array.isArray(camel) && camel[0]
+            ? String(camel[0])
+            : "";
   if (!customizationId) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">

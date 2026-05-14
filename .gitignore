@@ -54,6 +54,8 @@ next-env.d.ts
 .support-tickets-store.json
 .exception-requests-store.json
 .fdm-store-settings.json
+.fdm-store-settings.*.json
+.aigc-lifecycle-events.jsonl
 .fdm-ai-artifacts.json
 .fdm-product-ai-cover.json
 .stripe-checkout-map.json

@@ -1,17 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RemoteSafeFillImage } from "@/components/RemoteSafeImage";
 import {
   canSelectSpecValue,
   isSpecCombinationAllowedByMap,
 } from "@/lib/spec-combination-whitelist";
+import { readFdmAigcLastFromWindow } from "@/lib/shop-aigc-persist";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
 
 export function ProductDetailClient({ product }: { product: ProductDetail }) {
   const [imgIdx, setImgIdx] = useState(0);
+  const [aigcHero, setAigcHero] = useState<string | null>(null);
+
+  useEffect(() => {
+    const last = readFdmAigcLastFromWindow();
+    if (last && last.product_id === product.product_id) {
+      setAigcHero(last.url);
+      setImgIdx(0);
+    } else {
+      setAigcHero(null);
+    }
+  }, [product.product_id]);
+
+  const galleryUrls = useMemo(() => {
+    if (aigcHero) return [aigcHero, ...product.gallery];
+    return product.gallery;
+  }, [aigcHero, product.gallery]);
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [addMsg, setAddMsg] = useState("");
@@ -97,15 +114,20 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
       <div>
         <div className="relative aspect-square overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
           <RemoteSafeFillImage
-            src={product.gallery[imgIdx] ?? product.cover_url}
+            src={galleryUrls[imgIdx] ?? product.cover_url}
             alt={product.title}
             className="object-cover"
             priority
             sizes="(max-width:1024px) 100vw, 50vw"
           />
         </div>
+        {aigcHero ? (
+          <p className="mb-2 text-xs text-violet-800">
+            本機に保存された AI 確定画像を先頭に表示しています（デモ）。
+          </p>
+        ) : null}
         <div className="mt-3 flex gap-2 overflow-x-auto">
-          {product.gallery.map((url, i) => (
+          {galleryUrls.map((url, i) => (
             <button
               key={`${url}-${i}`}
               type="button"

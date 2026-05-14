@@ -26,9 +26,6 @@ export function StoreSiteHeader({ storeName, locale }: StoreSiteHeaderProps) {
           <Link href={storePath("/cart")} className="hover:text-[#e85c22]">
             カート
           </Link>
-          <Link href={storePath("/checkout")} className="hover:text-[#e85c22]">
-            ご注文
-          </Link>
           <span className="hidden h-4 w-px bg-zinc-200 sm:inline" aria-hidden />
           <Link
             href="/b/login"

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { confirmGenerationJob } from "@/lib/aigc-generation-store";
+import { confirmAigcGeneration } from "@/lib/aigc-job-service";
 import { newRequestId } from "@/lib/request-id";
 import type { AigcGenerationConfirmBody } from "@/lib/aigc-types";
 
-/** 在确认窗内选定一张候选图（骨架：不落 customization；前端再调 POST /api/customizations） */
+/** 在确认窗内选定一张候选图 */
 export async function POST(req: Request, ctx: { params: Promise<{ jobId: string }> }) {
   const requestId = newRequestId();
   const { jobId } = await ctx.params;
@@ -24,7 +24,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ jobId: string 
     );
   }
 
-  const result = confirmGenerationJob(jobId, body.candidate_index);
+  const result = await confirmAigcGeneration(jobId, body.candidate_index);
   if (!result.ok) {
     const status =
       result.code === "NOT_FOUND"
@@ -50,7 +50,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ jobId: string 
         width: selected.width,
         height: selected.height,
       },
-      /** 后续：写 customization 或 signed PUT URL 的 asset id */
       next_step_hint: "Call POST /api/customizations with user_images including this URL, or attach asset_id when storage is wired.",
       requestId,
     },

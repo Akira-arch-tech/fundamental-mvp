@@ -1,5 +1,6 @@
 import { index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import type { ExceptionAuditLog } from "@/lib/types";
+import type { AigcCandidate, AigcReferenceItem } from "@/lib/aigc-types";
+import type { CustomizationDesignStored, DpiCheckResult, ExceptionAuditLog } from "@/lib/types";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -123,4 +124,55 @@ export const crmTimelineEntries = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("crm_order_no_idx").on(t.orderNo), index("crm_created_idx").on(t.createdAt)],
+);
+
+/** 买家定制草稿（多实例 / 生产环境须落库；对齐 v1.0 方案 §4.5） */
+export const customizations = pgTable(
+  "customizations",
+  {
+    customizationId: text("customization_id").primaryKey(),
+    productId: text("product_id").notNull(),
+    templateId: text("template_id").notNull(),
+    designData: jsonb("design_data").$type<CustomizationDesignStored>().notNull(),
+    dpiCheckResult: jsonb("dpi_check_result").$type<DpiCheckResult>().notNull(),
+    warnings: jsonb("warnings").$type<string[]>().notNull(),
+    previewUrl: text("preview_url").notNull(),
+    status: text("status").notNull().default("draft"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("customizations_product_id_idx").on(t.productId),
+    index("customizations_created_at_idx").on(t.createdAt),
+  ],
+);
+
+/** 买家 AIGC 生图任务（queued → processing → ready；多实例需 DB） */
+export const aigcGenerationJobs = pgTable(
+  "aigc_generation_jobs",
+  {
+    jobId: text("job_id").primaryKey(),
+    productId: text("product_id").notNull(),
+    mode: text("mode").notNull().default("txt2img"),
+    prompt: text("prompt"),
+    negativePrompt: text("negative_prompt"),
+    aspectRatio: text("aspect_ratio"),
+    candidateCount: integer("candidate_count").notNull().default(2),
+    seed: text("seed"),
+    strength: text("strength"),
+    referenceAssetIds: jsonb("reference_asset_ids").$type<string[]>().notNull().default([]),
+    referencesPayload: jsonb("references_payload").$type<AigcReferenceItem[] | null>(),
+    compositionMode: text("composition_mode"),
+    status: text("status").notNull(),
+    candidates: jsonb("candidates").$type<AigcCandidate[]>().notNull().default([]),
+    confirmDeadlineAt: timestamp("confirm_deadline_at", { withTimezone: true }).notNull(),
+    confirmedIndex: integer("confirmed_index"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    providerRequestId: text("provider_request_id"),
+    warnings: jsonb("warnings").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("aigc_jobs_status_idx").on(t.status), index("aigc_jobs_created_idx").on(t.createdAt)],
 );
