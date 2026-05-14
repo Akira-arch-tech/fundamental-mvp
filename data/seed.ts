@@ -193,6 +193,11 @@ export const products: ProductDetail[] = [
     lead_time_rules: [{ label: "標準", days: 6 }],
     design_template_id: "tmpl_tote_square",
     faq: [],
+    color_variants: [
+      { value: "transparent", label: "クリア" },
+      { value: "#ffffff", label: "ホワイト" },
+      { value: "#18181b", label: "ブラック" },
+    ],
   },
   {
     product_id: "p5",
@@ -233,6 +238,54 @@ export const products: ProductDetail[] = [
     lead_time_rules: [{ label: "標準", days: 7 }],
     design_template_id: "tmpl_towel",
     faq: [],
+  },
+  {
+    product_id: "p7",
+    slug: "custom-tshirt-fullprint",
+    title: "オリジナルTシャツ（全面フルカラー印刷）",
+    cover_url: skuImage.p1,
+    price_from: 2200,
+    badge: "NEW",
+    lead_time_days: 7,
+    min_qty: 1,
+    category_ids: ["tote"],
+    oshi_color_tags: ["white", "black", "pink", "blue"],
+    popularity: 92,
+    created_at: "2026-04-01",
+    description: "推しデザインをフルカラーで全面プリント。ライブ・イベント・日常使いに。",
+    gallery: [skuImage.p1],
+    spec_schema: [
+      {
+        id: "size",
+        label: "サイズ",
+        values: [
+          { id: "s", label: "S", sku_code: "TSHIRT-S" },
+          { id: "m", label: "M", sku_code: "TSHIRT-M" },
+          { id: "l", label: "L", sku_code: "TSHIRT-L" },
+          { id: "xl", label: "XL", sku_code: "TSHIRT-XL" },
+          { id: "xxl", label: "XXL", sku_code: "TSHIRT-XXL" },
+        ],
+      },
+    ],
+    pricing_rules: [
+      { min_qty: 1, unit_price: 2200 },
+      { min_qty: 10, unit_price: 1980 },
+      { min_qty: 30, unit_price: 1760 },
+    ],
+    lead_time_rules: [{ label: "標準", days: 7 }],
+    design_template_id: "tmpl_tshirt",
+    faq: [],
+    color_variants: [
+      { value: "#ffffff", label: "ホワイト" },
+      { value: "#18181b", label: "ブラック" },
+      { value: "#ec4899", label: "ピンク" },
+      { value: "#3b82f6", label: "ライトブルー" },
+      { value: "#d4d4d4", label: "グレー" },
+    ],
+    print_areas: [
+      { id: "front", label: "前面" },
+      { id: "back", label: "背面" },
+    ],
   },
 ];
 

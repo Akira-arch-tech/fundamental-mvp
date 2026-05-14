@@ -60,6 +60,8 @@ export interface ProductDetail extends ProductCard {
   lead_time_rules: { label: string; days: number; condition?: string }[];
   design_template_id: string;
   faq: { q: string; a: string }[];
+  color_variants?: { value: string; label: string }[];
+  print_areas?: { id: string; label: string }[];
 }
 
 export interface CartSpecSelection {

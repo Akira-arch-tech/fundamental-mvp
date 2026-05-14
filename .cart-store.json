@@ -1,0 +1,23 @@
+{
+  "cart_d4c9718877a5417a": {
+    "cart_item_id": "cart_d4c9718877a5417a",
+    "product_id": "p2",
+    "product_slug": "photo-keyholder-4cut",
+    "product_title": "アクキープレート｜自由デザイン・両面印刷・3.1mm厚",
+    "cover_url": "/products/p2-acrylic-keyholder.svg",
+    "qty": 2,
+    "unit_price": 810,
+    "line_total": 1620,
+    "selected_specs": [
+      {
+        "spec_id": "frame",
+        "spec_label": "フレーム",
+        "value_id": "glitter",
+        "value_label": "ラメ入り"
+      }
+    ],
+    "source_sku_code": "7SG-AKK-PLATE-GLITTER",
+    "added_from": "product",
+    "created_at": "2026-05-14T10:48:09.983Z"
+  }
+}

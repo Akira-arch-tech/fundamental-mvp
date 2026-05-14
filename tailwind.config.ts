@@ -7,6 +7,22 @@ const config: Config = {
       colors: {
         ink: "#0a0a0a",
         gold: "#c9a84c",
+        line: {
+          green: "#06C755",
+          "green-dark": "#00B900",
+          "green-light": "#E8F9EE",
+          bg: "#EEF0F3",
+        },
+      },
+      fontFamily: {
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          '"Hiragino Kaku Gothic ProN"',
+          '"Hiragino Sans"',
+          "Meiryo",
+          "sans-serif",
+        ],
       },
     },
   },

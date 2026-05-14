@@ -71,29 +71,45 @@ export class FalQueueAigcModelProvider implements AigcModelProvider {
   ) {}
 
   async generate(input: AigcProviderGenerateInput): Promise<AigcProviderResult> {
-    if (input.mode !== "txt2img") {
-      throw new Error(`fal provider: mode ${input.mode} not supported yet (txt2img only)`);
-    }
-    if (!input.prompt?.trim()) {
-      throw new Error("fal provider: prompt required");
-    }
-    if (input.reference_data_urls.length > 0) {
-      throw new Error("fal provider: reference images not supported in this adapter yet");
+    if (!input.prompt?.trim() && input.mode === "txt2img") {
+      throw new Error("fal provider: prompt required for txt2img");
     }
 
     const num_images = Math.min(4, Math.max(1, Math.floor(input.candidate_count)));
+    const imageSize = mapAspectToImageSize(input.aspect_ratio);
+
+    let effectiveModelId = this.modelId;
     const body: Record<string, unknown> = {
-      prompt: input.prompt.trim(),
       num_images,
-      image_size: mapAspectToImageSize(input.aspect_ratio),
       enable_safety_checker: true,
     };
+
+    if (input.prompt?.trim()) {
+      body.prompt = input.prompt.trim();
+    }
     if (input.seed) {
       const n = parseInt(input.seed, 10);
       if (Number.isFinite(n)) body.seed = n;
     }
 
-    const submitRes = await fetch(`${FAL_QUEUE_BASE}/${this.modelId}`, {
+    if (input.mode === "img2img" && input.reference_data_urls.length > 0) {
+      // Use flux img2img endpoint; strength controls deviation from source image
+      effectiveModelId = "fal-ai/flux/dev/image-to-image";
+      body.image_url = input.reference_data_urls[0];
+      body.strength = typeof input.strength === "number" ? Math.max(0.1, Math.min(1.0, input.strength)) : 0.85;
+      if (!body.prompt) body.prompt = "high quality, detailed";
+    } else if (input.mode === "multi_ref" && input.reference_data_urls.length > 0) {
+      // Multi-reference: use IP-Adapter face/style composition
+      effectiveModelId = "fal-ai/flux/dev/image-to-image";
+      body.image_url = input.reference_data_urls[0];
+      body.strength = 0.75;
+      if (!body.prompt) body.prompt = "high quality, detailed composition";
+    } else {
+      // txt2img
+      body.image_size = imageSize;
+    }
+
+    const submitRes = await fetch(`${FAL_QUEUE_BASE}/${effectiveModelId}`, {
       method: "POST",
       headers: {
         Authorization: `Key ${this.apiKey}`,
@@ -116,7 +132,7 @@ export class FalQueueAigcModelProvider implements AigcModelProvider {
       throw new Error(`fal submit missing request_id: ${submitText.slice(0, 300)}`);
     }
 
-    const pollUrlBase = submitJson.status_url ?? statusUrl(this.modelId, requestId);
+    const pollUrlBase = submitJson.status_url ?? statusUrl(effectiveModelId, requestId);
     const pollUrl = new URL(pollUrlBase);
     pollUrl.searchParams.set("logs", "0");
     const maxWaitMs = 5 * 60 * 1000;
@@ -140,7 +156,7 @@ export class FalQueueAigcModelProvider implements AigcModelProvider {
         if (st.error) {
           throw new Error(`fal completed with error: ${st.error}${st.error_type ? ` (${st.error_type})` : ""}`);
         }
-        const resUrl = st.response_url ?? resultUrl(this.modelId, requestId);
+        const resUrl = st.response_url ?? resultUrl(effectiveModelId, requestId);
         const resRes = await fetch(resUrl, { headers: { Authorization: `Key ${this.apiKey}` } });
         const resText = await resRes.text();
         if (!resRes.ok) {
@@ -158,7 +174,7 @@ export class FalQueueAigcModelProvider implements AigcModelProvider {
           height: im.height,
         }));
         const warnings: string[] = [
-          `fal_queue: model=${this.modelId} request_id=${requestId} num_images=${num_images}`,
+          `fal_queue: model=${effectiveModelId} request_id=${requestId} num_images=${num_images} mode=${input.mode}`,
         ];
         return { candidates, provider_request_id: requestId, warnings };
       }

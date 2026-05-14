@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { RemoteSafeFillImage } from "@/components/RemoteSafeImage";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AigcCandidate } from "@/lib/aigc-types";
@@ -9,6 +8,191 @@ import { AIGC_GENERATIONS_API_PATH, AIGC_MAX_CANDIDATE_COUNT, AIGC_MAX_REFERENCE
 import { writeFdmAigcLastToWindow } from "@/lib/shop-aigc-persist";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
+
+// ---------------------------------------------------------------------------
+// Product base layer — rendered at z=0, pointer-events-none, never exported
+// ---------------------------------------------------------------------------
+function ProductBaseLayer({
+  templateId,
+  color,
+  printArea,
+}: {
+  templateId: string;
+  color: string;
+  printArea: "front" | "back";
+}) {
+  const isAcrylic =
+    templateId.includes("acrylic") ||
+    templateId.includes("tote_square") ||
+    templateId.includes("cheki");
+  const isTshirt = templateId.includes("tshirt");
+  const isTowel = templateId.includes("towel");
+
+  // Acrylic plate + stand
+  if (isAcrylic) {
+    const fill =
+      color === "transparent"
+        ? "url(#acrylic-clear)"
+        : color === "#18181b"
+          ? "#1a1a1a"
+          : color;
+    return (
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        viewBox="0 0 200 200"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden
+      >
+        <defs>
+          <linearGradient id="acrylic-clear" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#e8f4ff" stopOpacity="0.7" />
+            <stop offset="100%" stopColor="#f0faff" stopOpacity="0.4" />
+          </linearGradient>
+          <linearGradient id="acrylic-gloss" x1="0" y1="0" x2="0.5" y2="1">
+            <stop offset="0%" stopColor="white" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="white" stopOpacity="0" />
+          </linearGradient>
+          <filter id="acrylic-shadow">
+            <feDropShadow dx="0" dy="4" stdDeviation="6" floodOpacity="0.18" />
+          </filter>
+        </defs>
+        {/* Plate */}
+        <rect
+          x="55" y="18" width="90" height="130"
+          rx="10" ry="10"
+          fill={fill}
+          stroke="rgba(180,210,240,0.7)"
+          strokeWidth="1.5"
+          filter="url(#acrylic-shadow)"
+        />
+        {/* Gloss overlay */}
+        <rect
+          x="55" y="18" width="90" height="130"
+          rx="10" ry="10"
+          fill="url(#acrylic-gloss)"
+        />
+        {/* Print area indicator */}
+        <rect
+          x="65" y="28" width="70" height="110"
+          rx="6" ry="6"
+          fill="none"
+          stroke="rgba(100,160,220,0.35)"
+          strokeWidth="1"
+          strokeDasharray="4 3"
+        />
+        {/* Stand neck */}
+        <rect x="98" y="148" width="4" height="16" rx="2" fill="#c0c8d0" />
+        {/* Stand base */}
+        <rect x="75" y="164" width="50" height="10" rx="5" fill="#c8cdd5" />
+      </svg>
+    );
+  }
+
+  // T-shirt
+  if (isTshirt) {
+    // Print area rect: front chest vs back
+    const printX = 65;
+    const printY = printArea === "front" ? 72 : 65;
+    const printW = 70;
+    const printH = printArea === "front" ? 65 : 80;
+
+    return (
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        viewBox="0 0 200 200"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden
+      >
+        <defs>
+          <filter id="shirt-shadow">
+            <feDropShadow dx="0" dy="3" stdDeviation="5" floodOpacity="0.14" />
+          </filter>
+        </defs>
+        {/* T-shirt body — viewBox scaled to 200×200, shirt centered */}
+        <g transform="translate(20, 10) scale(1.0)" filter="url(#shirt-shadow)">
+          <path
+            d="M80 4 C72 4 65 10 65 18 L38 12 L8 46 L36 56 L36 175 L164 175 L164 56 L192 46 L162 12 L135 18 C135 10 128 4 120 4 C112 4 105 11 105 19 L95 19 C95 11 88 4 80 4 Z"
+            fill={color === "transparent" ? "#e8ecf0" : color}
+            stroke="rgba(0,0,0,0.1)"
+            strokeWidth="1"
+          />
+          {/* Collar highlight */}
+          <path
+            d="M95 19 C95 11 88 4 80 4 C72 4 65 10 65 18 C70 22 80 24 100 24 C120 24 130 22 135 18 C135 10 128 4 120 4 C112 4 105 11 105 19 Z"
+            fill="rgba(0,0,0,0.06)"
+          />
+        </g>
+        {/* Print area indicator */}
+        <rect
+          x={printX} y={printY} width={printW} height={printH}
+          rx="4"
+          fill="rgba(255,255,255,0.18)"
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth="1.5"
+          strokeDasharray="5 3"
+        />
+        {/* "前面" / "背面" label */}
+        <text
+          x="100" y={printY + printH + 14}
+          textAnchor="middle"
+          fontSize="9"
+          fill="rgba(255,255,255,0.7)"
+          fontFamily="sans-serif"
+        >
+          {printArea === "front" ? "前面" : "背面"}
+        </text>
+      </svg>
+    );
+  }
+
+  // Towel — full-bleed rectangle
+  if (isTowel) {
+    return (
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        viewBox="0 0 200 200"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden
+      >
+        <rect
+          x="30" y="20" width="140" height="160"
+          rx="6"
+          fill={color === "transparent" ? "#f5f5f5" : color}
+          stroke="rgba(0,0,0,0.08)"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="40" y="30" width="120" height="140"
+          rx="4"
+          fill="none"
+          stroke="rgba(255,255,255,0.5)"
+          strokeWidth="1"
+          strokeDasharray="5 3"
+        />
+      </svg>
+    );
+  }
+
+  // Default — subtle background fill only
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <rect
+        x="20" y="20" width="160" height="160"
+        rx="8"
+        fill={color === "transparent" ? "rgba(200,220,240,0.3)" : color}
+        fillOpacity="0.15"
+        stroke="rgba(150,180,210,0.4)"
+        strokeWidth="1"
+        strokeDasharray="6 3"
+      />
+    </svg>
+  );
+}
 
 interface SaveResult {
   customization_id: string;
@@ -114,7 +298,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       color: "#e85c22",
       locked: false,
       x: 0,
-      y: 180,
+      y: 0,
       scaleX: 1,
       scaleY: 1,
       rotate: 0,
@@ -133,6 +317,21 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [error, setError] = useState("");
   const [cartMsg, setCartMsg] = useState("");
   const [saved, setSaved] = useState<SaveResult | null>(null);
+
+  // Unified upload — pending state before user chooses canvas or AI
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingDataUrl, setPendingDataUrl] = useState("");
+
+  // AI design tools state
+  const [fontFamily, setFontFamily] = useState("inherit");
+  const [rmbgBusy, setRmbgBusy] = useState(false);
+  const [rmbgMsg, setRmbgMsg] = useState("");
+  const [upscaleBusy, setUpscaleBusy] = useState(false);
+  const [upscaleMsg, setUpscaleMsg] = useState("");
+  const [productColor, setProductColor] = useState(
+    (product as { color_variants?: { value: string; label: string }[] }).color_variants?.[0]?.value ?? "#ffffff",
+  );
+  const [printArea, setPrintArea] = useState<"front" | "back">("front");
 
   /** 买家店 AIGC：`multipart` 参考图 → `POST /api/aigc/generations`（txt2img / img2img / multi_ref） */
   const [aigcPrompt, setAigcPrompt] = useState("");
@@ -201,6 +400,63 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       return nextLayers;
     });
   }
+
+  const onRmbg = useCallback(async () => {
+    if (!selectedLayer || selectedLayer.type !== "image" || rmbgBusy) return;
+    setRmbgBusy(true);
+    setRmbgMsg("背景を削除中...");
+    try {
+      const res = await fetch("/api/design-tools/rmbg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: selectedLayer.dataUrl }),
+      });
+      const json = await res.json() as { image_url?: string; error?: string };
+      if (!res.ok || !json.image_url) throw new Error(json.error ?? "rmbg failed");
+      const layerId = selectedLayer.id;
+      updateEditor((prev) =>
+        prev.map((layer) =>
+          layer.id === layerId && layer.type === "image"
+            ? { ...layer, dataUrl: json.image_url! }
+            : layer,
+        ),
+      );
+      setRmbgMsg("✅ 背景を削除しました");
+    } catch (e) {
+      setRmbgMsg(`❌ ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setRmbgBusy(false);
+    }
+  }, [selectedLayer, rmbgBusy, updateEditor]);
+
+  const onUpscale = useCallback(async () => {
+    if (!selectedLayer || selectedLayer.type !== "image" || upscaleBusy) return;
+    setUpscaleBusy(true);
+    setUpscaleMsg("AI で画質を改善中 (4×)...");
+    try {
+      const res = await fetch("/api/design-tools/upscale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: selectedLayer.dataUrl }),
+      });
+      const json = await res.json() as { image_url?: string; error?: string };
+      if (!res.ok || !json.image_url) throw new Error(json.error ?? "upscale failed");
+      const layerId = selectedLayer.id;
+      updateEditor((prev) =>
+        prev.map((layer) =>
+          layer.id === layerId && layer.type === "image"
+            ? { ...layer, dataUrl: json.image_url! }
+            : layer,
+        ),
+      );
+      setUpscaleMsg("✅ 高解像度化完了");
+      setEstimatedDpi((prev) => Math.min(400, prev * 4));
+    } catch (e) {
+      setUpscaleMsg(`❌ ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setUpscaleBusy(false);
+    }
+  }, [selectedLayer, upscaleBusy, updateEditor]);
 
   function getActiveTransformLayerIds(): string[] {
     if (selectedLayerIds.length > 1) {
@@ -327,6 +583,39 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       setSelectedLayerIds([id]);
     };
     reader.readAsDataURL(file);
+  }
+
+  function onFileSelected(file: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingFile(file);
+      setPendingDataUrl(String(reader.result ?? ""));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function onPlaceOnCanvas() {
+    if (!pendingFile || !pendingDataUrl) return;
+    const id = `layer_img_${Date.now()}`;
+    const newLayer: ImageLayer = {
+      id, type: "image", name: pendingFile.name, dataUrl: pendingDataUrl,
+      locked: false, x: 0, y: 0, scaleX: 1, scaleY: 1, rotate: 0,
+    };
+    updateEditor((prev) => [newLayer, ...prev]);
+    setSelectedLayerId(id);
+    setSelectedLayerIds([id]);
+    setPendingFile(null);
+    setPendingDataUrl("");
+  }
+
+  function onUseAsAiRef() {
+    if (!pendingFile) return;
+    setAigcRefFiles((prev) =>
+      [...prev, pendingFile].slice(0, AIGC_MAX_REFERENCE_ASSET_COUNT),
+    );
+    setPendingFile(null);
+    setPendingDataUrl("");
   }
 
   function onLayerPointerDown(e: React.PointerEvent<HTMLDivElement>, layer: CanvasLayer) {
@@ -662,10 +951,9 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setError("");
     setSaved(null);
     try {
-      const res = await fetch("/api/customizations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      let bodyJson: string;
+      try {
+        bodyJson = JSON.stringify({
           product_id: product.product_id,
           template_id: product.design_template_id,
           text_layers: layers
@@ -674,10 +962,23 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           color_layers: [{ role: "background", value: bgColor }],
           user_images: layers
             .filter((layer): layer is ImageLayer => layer.type === "image")
-            .map((layer) => ({ name: layer.name, data_url: layer.dataUrl })),
+            .map((layer) => ({
+              name: layer.name,
+              data_url: typeof layer.dataUrl === "string" ? layer.dataUrl : String(layer.dataUrl ?? ""),
+            })),
           transform_matrix: [1, 0, 0, 1, 0, 0],
           estimated_dpi: estimatedDpi,
-        }),
+        });
+      } catch {
+        throw new Error("デザインのデータを JSON にできませんでした。レイヤー内容をご確認ください。");
+      }
+      if (!bodyJson || bodyJson === "{}") {
+        throw new Error("保存用データが空です。ページを再読み込みして再度お試しください。");
+      }
+      const res = await fetch("/api/customizations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: bodyJson,
       });
       const json = (await res.json()) as SaveResult & {
         code?: string;
@@ -724,7 +1025,14 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   }
 
   function exportPrintDraftJson() {
-    const blob = new Blob([JSON.stringify(printDraft, null, 2)], {
+    let raw: string;
+    try {
+      raw = JSON.stringify(printDraft, null, 2);
+    } catch {
+      setError("JSON エクスポートに失敗しました（データが大きすぎるか、不正な形式です）。");
+      return;
+    }
+    const blob = new Blob([raw], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
@@ -963,11 +1271,10 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             }
           }}
         >
-          <RemoteSafeFillImage
-            src={product.cover_url}
-            alt={product.title}
-            className="object-cover opacity-15"
-            sizes="(max-width:768px) 100vw, 520px"
+          <ProductBaseLayer
+            templateId={product.design_template_id}
+            color={productColor}
+            printArea={printArea}
           />
           {layers
             .slice()
@@ -998,9 +1305,10 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
               return (
                 <div
                   key={layer.id}
-                  className="absolute inset-x-0 bottom-6 px-6 text-center"
+                  className="absolute left-1/2 top-1/2 px-4 text-center"
                   style={{
-                    transform: `translate(${layer.x}px, ${layer.y}px) scale(${layer.scaleX}, ${layer.scaleY}) rotate(${layer.rotate}deg)`,
+                    transform: `translate(calc(-50% + ${layer.x}px), calc(-50% + ${layer.y}px)) scale(${layer.scaleX}, ${layer.scaleY}) rotate(${layer.rotate}deg)`,
+                    whiteSpace: "nowrap",
                   }}
                   onPointerDown={(e) => onLayerPointerDown(e, layer)}
                 >
@@ -1008,7 +1316,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                     className={`rounded-md bg-white/70 px-3 py-2 text-lg font-bold shadow-sm backdrop-blur ${
                       selectedLayerId === layer.id ? "ring-2 ring-[#e85c22]/50" : ""
                     }`}
-                    style={{ color: layer.color }}
+                    style={{ color: layer.color, fontFamily: fontFamily !== "inherit" ? fontFamily : undefined }}
                   >
                     {layer.text || "テキストを入力してください"}
                   </p>
@@ -1091,9 +1399,20 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           PRD §8.2：外周赤枠＝出血イメージ、内側緑枠＝安全区（簡易示意）。複数レイヤー・ロック・Undo/Redo に対応。
         </p>
         {dpiBlocksProduction ? (
-          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
-            推定 DPI が 200 未満のため、カート追加と注文へ進むをブロックしています。
-          </p>
+          <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
+            <p>推定 DPI が 200 未満のため、カート追加と注文へ進むをブロックしています。</p>
+            {selectedLayer?.type === "image" && (
+              <button
+                type="button"
+                onClick={() => void onUpscale()}
+                disabled={upscaleBusy}
+                className="mt-2 rounded-full bg-red-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {upscaleBusy ? "AI 処理中..." : "✨ AI で画質を 4× 改善する"}
+              </button>
+            )}
+            {upscaleMsg && <p className="mt-1 text-[11px]">{upscaleMsg}</p>}
+          </div>
         ) : null}
       </section>
 
@@ -1103,38 +1422,76 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           <p className="mt-1 text-sm text-zinc-600">{product.title}</p>
         </div>
 
+        {/* Product color variants */}
+        {(product as { color_variants?: { value: string; label: string }[] }).color_variants && (
+          <div>
+            <span className="mb-2 block text-sm font-medium text-zinc-700">商品カラー</span>
+            <div className="flex flex-wrap gap-2">
+              {(product as { color_variants: { value: string; label: string }[] }).color_variants.map((cv) => (
+                <button
+                  key={cv.value}
+                  type="button"
+                  onClick={() => setProductColor(cv.value)}
+                  title={cv.label}
+                  className={`h-8 w-8 rounded-full border-2 shadow-sm transition-transform ${
+                    productColor === cv.value ? "scale-110 border-[#e85c22]" : "border-zinc-300 hover:border-zinc-500"
+                  }`}
+                  style={{ backgroundColor: cv.value }}
+                />
+              ))}
+              <span className="self-center text-xs text-zinc-500">
+                {(product as { color_variants: { value: string; label: string }[] }).color_variants.find(
+                  (c) => c.value === productColor,
+                )?.label}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Print area selector */}
+        <div>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">印刷箇所</span>
+          <div className="flex gap-2">
+            {(["front", "back"] as const).map((area) => (
+              <button
+                key={area}
+                type="button"
+                onClick={() => setPrintArea(area)}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                  printArea === area
+                    ? "bg-[#e85c22] text-white"
+                    : "border border-zinc-300 text-zinc-600 hover:border-zinc-500"
+                }`}
+              >
+                {area === "front" ? "前面" : "背面"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm text-zinc-800">
-          <h2 className="text-sm font-bold text-violet-900">AI 画像（MVP デモ）</h2>
-          <p className="mt-1 text-xs text-zinc-600">
-            参考画像は最大 {AIGC_MAX_REFERENCE_ASSET_COUNT}{" "}
-            枚まで。選択後は <code className="rounded bg-white/80 px-0.5">{AIGC_REFERENCE_ASSETS_API_PATH}</code>{" "}
-            に multipart アップロードし、続けて <code className="rounded bg-white/80 px-0.5">{AIGC_GENERATIONS_API_PATH}</code>{" "}
-            で <strong>txt2img / img2img / multi_ref</strong> ジョブを作成します（サーバーは mock provider）。
-          </p>
-          <label className="mt-2 block">
-            <span className="mb-1 block text-xs font-medium text-zinc-700">参考画像（複数可）</span>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => onAigcRefFilesChange(e.target.files)}
-              className="block w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs file:mr-2 file:rounded file:border-0 file:bg-violet-100 file:px-2 file:py-1"
-            />
-            {aigcRefFiles.length > 0 ? (
-              <span className="mt-1 block text-xs text-zinc-500">選択中: {aigcRefFiles.length} 枚</span>
-            ) : null}
-          </label>
-          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={aigcMultiRef}
-              disabled={aigcRefFiles.length < 2}
-              onChange={(e) => setAigcMultiRef(e.target.checked)}
-            />
-            <span className={aigcRefFiles.length < 2 ? "text-zinc-400" : ""}>
-              多图组合（multi_ref、2 枚以上で有効・角色按 subject/style/… 轮换）
-            </span>
-          </label>
+          <h2 className="text-sm font-bold text-violet-900">✨ AI 画像生成（fal.ai）</h2>
+
+          {/* Reference image status — set via unified upload above */}
+          {aigcRefFiles.length > 0 ? (
+            <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-100 px-3 py-2">
+              <span className="text-xs text-violet-800">
+                📎 参考画像 {aigcRefFiles.length} 枚セット済み
+                {aigcRefFiles.length >= 2 ? "（multi_ref モード）" : "（img2img モード）"}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setAigcRefFiles([]); setAigcMultiRef(false); }}
+                className="ml-auto text-xs text-violet-500 hover:text-violet-800"
+              >
+                クリア
+              </button>
+            </div>
+          ) : (
+            <p className="mt-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
+              参考画像なし（プロンプトのみで生成）。上の「AIで新しいデザインを生成する」から参考画像をセットできます。
+            </p>
+          )}
           <label className="mt-2 block">
             <span className="mb-1 block text-xs font-medium text-zinc-700">
               プロンプト（文生图で必須／参考のみの图生图では任意）
@@ -1293,6 +1650,26 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           />
         </label>
 
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-zinc-700">フォント</span>
+          <select
+            value={fontFamily}
+            onChange={(e) => setFontFamily(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#e85c22]"
+            style={{ fontFamily: fontFamily !== "inherit" ? fontFamily : undefined }}
+          >
+            <option value="inherit">デフォルト</option>
+            <option value="'Noto Sans JP', sans-serif">Noto Sans JP</option>
+            <option value="'M PLUS Rounded 1c', sans-serif">M PLUS Rounded 1c</option>
+            <option value="'DotGothic16', sans-serif">DotGothic16（ドット）</option>
+            <option value="'Kosugi Maru', sans-serif">Kosugi Maru</option>
+            <option value="'Yusei Magic', sans-serif">Yusei Magic（手書き）</option>
+            <option value="'Zen Antique Soft', serif">Zen Antique Soft（明朝）</option>
+            <option value="serif">セリフ体</option>
+            <option value="monospace">等幅</option>
+          </select>
+        </label>
+
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-zinc-700">文字色</span>
@@ -1320,18 +1697,96 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           </label>
         </div>
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-zinc-700">画像をアップロード</span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => onUpload(e.target.files?.[0] ?? null)}
-            className="block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5"
-          />
-          {selectedLayer?.type === "image" ? (
-            <span className="mt-1 block text-xs text-zinc-500">{selectedLayer.name}</span>
-          ) : null}
-        </label>
+        <div>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">画像をアップロード</span>
+
+          {!pendingFile ? (
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 transition-colors hover:border-zinc-400 hover:bg-zinc-100">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0 text-zinc-400">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-zinc-700">クリックして画像を選択</p>
+                <p className="text-xs text-zinc-400">PNG / JPG / WebP</p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          ) : (
+            <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pendingDataUrl}
+                  alt="preview"
+                  className="h-14 w-14 shrink-0 rounded-lg border border-zinc-100 object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-zinc-700">{pendingFile.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">どちらで使用しますか？</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPendingFile(null); setPendingDataUrl(""); }}
+                  className="shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+                  aria-label="キャンセル"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={onPlaceOnCanvas}
+                  className="flex-1 rounded-full bg-zinc-800 px-3 py-2 text-xs font-bold text-white hover:bg-zinc-700"
+                >
+                  このままcanvasに置く
+                </button>
+                <button
+                  type="button"
+                  onClick={onUseAsAiRef}
+                  className="flex-1 rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
+                >
+                  AIで新しいデザインを生成する
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {selectedLayer?.type === "image" && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+            <p className="mb-2 text-xs font-bold text-emerald-800">✨ AI 画像ツール</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void onRmbg()}
+                disabled={rmbgBusy}
+                className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {rmbgBusy ? "処理中..." : "背景を削除"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void onUpscale()}
+                disabled={upscaleBusy}
+                className="rounded-full border border-emerald-600 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+              >
+                {upscaleBusy ? "処理中..." : "AI 超解像 (4×)"}
+              </button>
+            </div>
+            {rmbgMsg && <p className="mt-1.5 text-xs text-emerald-700">{rmbgMsg}</p>}
+            {upscaleMsg && <p className="mt-1.5 text-xs text-emerald-700">{upscaleMsg}</p>}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-zinc-700">画像の拡大率</span>

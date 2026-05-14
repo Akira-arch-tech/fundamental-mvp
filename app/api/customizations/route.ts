@@ -6,9 +6,17 @@ import type { CustomizationCreateInput } from "@/lib/types";
 
 export async function POST(req: Request) {
   const requestId = newRequestId();
+  let body: Partial<CustomizationCreateInput>;
   try {
-    const body = (await req.json()) as Partial<CustomizationCreateInput>;
+    body = (await req.json()) as Partial<CustomizationCreateInput>;
+  } catch {
+    return NextResponse.json(
+      { code: "BAD_REQUEST", message: "invalid json body", requestId },
+      { status: 400, headers: { "X-Request-Id": requestId } },
+    );
+  }
 
+  try {
     if (!body.product_id) {
       return NextResponse.json(
         { code: "VALIDATION_ERROR", message: "product_id is required", requestId },
@@ -47,10 +55,16 @@ export async function POST(req: Request) {
       },
       { headers: { "X-Request-Id": requestId } },
     );
-  } catch {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "customization save failed";
+    console.error("[POST /api/customizations] save failed", requestId, e);
     return NextResponse.json(
-      { code: "BAD_REQUEST", message: "invalid json body", requestId },
-      { status: 400, headers: { "X-Request-Id": requestId } },
+      {
+        code: "CUSTOMIZATION_SAVE_FAILED",
+        message,
+        requestId,
+      },
+      { status: 500, headers: { "X-Request-Id": requestId } },
     );
   }
 }
