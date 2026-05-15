@@ -11,7 +11,7 @@ import type {
 } from "@/lib/integration/types";
 import { MAX_JOB_RETRIES, RETRY_BACKOFF_MINUTES } from "@/lib/integration/types";
 
-const FILE_PATH = path.join(process.cwd(), ".integration-jobs.json");
+const FILE_PATH = process.env.VERCEL ? "/tmp/.integration-jobs.json" : path.join(process.cwd(), ".integration-jobs.json");
 
 type JobsFileShape = {
   jobs: Record<string, IntegrationJobRecord>;

@@ -66,7 +66,7 @@ type FileShape = {
   versions: AiSceneRecord[];
 };
 
-const FILE = path.join(process.cwd(), ".fdm-ai-scenes.json");
+const FILE = process.env.VERCEL ? "/tmp/.fdm-ai-scenes.json" : path.join(process.cwd(), ".fdm-ai-scenes.json");
 
 async function readStore(): Promise<FileShape> {
   try {

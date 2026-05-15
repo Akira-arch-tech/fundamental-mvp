@@ -5,7 +5,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const LOG = path.join(process.cwd(), ".aigc-lifecycle-events.jsonl");
+const LOG = process.env.VERCEL ? "/tmp/.aigc-lifecycle-events.jsonl" : path.join(process.cwd(), ".aigc-lifecycle-events.jsonl");
 const MAX_LINES = 500;
 
 export type AigcLifecycleEvent = {

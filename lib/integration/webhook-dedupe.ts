@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const FILE_PATH = path.join(process.cwd(), ".erp-webhook-dedupe.json");
+const FILE_PATH = process.env.VERCEL ? "/tmp/.erp-webhook-dedupe.json" : path.join(process.cwd(), ".erp-webhook-dedupe.json");
 const MAX_IDS = 8000;
 
 async function readIds(): Promise<string[]> {

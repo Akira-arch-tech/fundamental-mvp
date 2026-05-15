@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db/client";
 import { crmTimelineEntries } from "@/lib/db/schema";
 import type { CrmTimelineEntry } from "@/lib/integration/types";
 
-const FILE_PATH = path.join(process.cwd(), ".crm-timeline.json");
+const FILE_PATH = process.env.VERCEL ? "/tmp/.crm-timeline.json" : path.join(process.cwd(), ".crm-timeline.json");
 
 async function readFile(): Promise<CrmTimelineEntry[]> {
   try {

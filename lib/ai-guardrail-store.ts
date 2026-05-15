@@ -13,7 +13,7 @@ export interface AiGuardrailConfig {
   updated_at: string;
 }
 
-const FILE = path.join(process.cwd(), ".fdm-ai-guardrails.json");
+const FILE = process.env.VERCEL ? "/tmp/.fdm-ai-guardrails.json" : path.join(process.cwd(), ".fdm-ai-guardrails.json");
 
 const DEFAULT_CONFIG: AiGuardrailConfig = {
   brand_terms: ["FUNDAMENTAL", "推し活", "应援"],

@@ -16,7 +16,7 @@ import { addShipmentEvent } from "@/lib/shipment-events-store";
 import { createWorkorder } from "@/lib/workorders-store";
 import type { OrderCreateInput, OrderRecord } from "@/lib/types";
 
-const STORE_PATH = path.join(process.cwd(), ".orders-store.json");
+const STORE_PATH = process.env.VERCEL ? "/tmp/.orders-store.json" : path.join(process.cwd(), ".orders-store.json");
 
 function newOrderId(): string {
   const hex = () => Math.random().toString(16).slice(2, 10);

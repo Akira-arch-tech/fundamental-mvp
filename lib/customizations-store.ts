@@ -8,7 +8,7 @@ import type {
   DpiCheckResult,
 } from "@/lib/types";
 
-const STORE_PATH = path.join(process.cwd(), ".customizations-store.json");
+const STORE_PATH = process.env.VERCEL ? "/tmp/.customizations-store.json" : path.join(process.cwd(), ".customizations-store.json");
 
 function newCustomizationId(): string {
   const hex = () => Math.random().toString(16).slice(2, 10);

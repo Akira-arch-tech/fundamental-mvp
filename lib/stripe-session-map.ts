@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 /** checkout.session.id → order_id（幂等与 Webhook / 成功页去重） */
-const MAP_PATH = path.join(process.cwd(), ".stripe-checkout-map.json");
+const MAP_PATH = process.env.VERCEL ? "/tmp/.stripe-checkout-map.json" : path.join(process.cwd(), ".stripe-checkout-map.json");
 
 type MapFile = Record<string, string>;
 

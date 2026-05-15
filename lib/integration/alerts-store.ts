@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db/client";
 import { integrationAlerts } from "@/lib/db/schema";
 import type { IntegrationAlertLevel, IntegrationAlertRecord } from "@/lib/integration/types";
 
-const FILE_PATH = path.join(process.cwd(), ".integration-alerts.json");
+const FILE_PATH = process.env.VERCEL ? "/tmp/.integration-alerts.json" : path.join(process.cwd(), ".integration-alerts.json");
 const MAX_FILE_ALERTS = 500;
 
 type FileShape = { alerts: IntegrationAlertRecord[] };
