@@ -141,7 +141,7 @@ function ProductBaseLayer({
           fill="rgba(255,255,255,0.7)"
           fontFamily="sans-serif"
         >
-          {printArea === "front" ? "前面" : "背面"}
+          {printArea === "front" ? "フロント" : "バック"}
         </text>
       </svg>
     );
@@ -1461,7 +1461,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                     : "border border-zinc-300 text-zinc-600 hover:border-zinc-500"
                 }`}
               >
-                {area === "front" ? "前面" : "背面"}
+                {area === "front" ? "フロント" : "バック"}
               </button>
             ))}
           </div>
