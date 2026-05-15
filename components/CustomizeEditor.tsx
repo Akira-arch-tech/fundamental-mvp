@@ -11,6 +11,26 @@ import { writeFdmAigcLastToWindow } from "@/lib/shop-aigc-persist";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
 
+// Resize a base64 data URL to max `maxPx` on the longest side using an
+// off-screen canvas. Keeps aspect ratio; returns original if already small.
+function resizeDataUrlToMax(dataUrl: string, maxPx: number): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const { naturalWidth: w, naturalHeight: h } = img;
+      if (w <= maxPx && h <= maxPx) { resolve(dataUrl); return; }
+      const scale = maxPx / Math.max(w, h);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Product base layer — rendered at z=0, pointer-events-none, never exported
 // ---------------------------------------------------------------------------
@@ -418,13 +438,21 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setRmbgBusy(true);
     setRmbgMsg("背景を削除中...");
     try {
+      let imageUrl = selectedLayer.dataUrl;
+      if (imageUrl.startsWith("data:")) {
+        imageUrl = await resizeDataUrlToMax(imageUrl, 1024);
+      }
       const res = await fetch("/api/design-tools/rmbg", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: selectedLayer.dataUrl }),
+        body: JSON.stringify({ image_url: imageUrl }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`サーバーエラー ${res.status}: ${text.slice(0, 120)}`);
+      }
       const json = await res.json() as { image_url?: string; error?: string };
-      if (!res.ok || !json.image_url) throw new Error(json.error ?? "rmbg failed");
+      if (!json.image_url) throw new Error(json.error ?? "rmbg failed");
       const layerId = selectedLayer.id;
       updateEditor((prev) =>
         prev.map((layer) =>
@@ -446,13 +474,25 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setUpscaleBusy(true);
     setUpscaleMsg("AI で画質を改善中 (4×)...");
     try {
+      // If the layer is a local base64 data URL, resize it to ≤1024px before
+      // sending to the API. Vercel serverless has a 4.5 MB request body limit;
+      // large base64 payloads exceed it and return a plain-text 413 error.
+      let imageUrl = selectedLayer.dataUrl;
+      if (imageUrl.startsWith("data:")) {
+        imageUrl = await resizeDataUrlToMax(imageUrl, 1024);
+      }
+
       const res = await fetch("/api/design-tools/upscale", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: selectedLayer.dataUrl }),
+        body: JSON.stringify({ image_url: imageUrl }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`サーバーエラー ${res.status}: ${text.slice(0, 120)}`);
+      }
       const json = await res.json() as { image_url?: string; error?: string };
-      if (!res.ok || !json.image_url) throw new Error(json.error ?? "upscale failed");
+      if (!json.image_url) throw new Error(json.error ?? "upscale failed");
       const layerId = selectedLayer.id;
       updateEditor((prev) =>
         prev.map((layer) =>
