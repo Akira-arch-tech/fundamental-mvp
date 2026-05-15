@@ -1584,7 +1584,8 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                         aigcPickIndex === c.index ? "border-violet-600 ring-2 ring-violet-300" : "border-zinc-200"
                       }`}
                     >
-                      <Image src={c.url} alt={`候補 ${c.index}`} fill className="object-cover" sizes="80px" />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={c.url} alt={`候補 ${c.index}`} className="h-full w-full object-cover" />
                     </button>
                     <button
                       type="button"
