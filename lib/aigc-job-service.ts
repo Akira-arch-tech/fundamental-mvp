@@ -115,7 +115,7 @@ export async function enqueueAigcGeneration(p: EnqueueAigcParams): Promise<AigcG
     error_code: null,
     error_message: null,
     provider_request_id: null,
-    warnings: ["任务已排队；候选生成完成后将刷新确认截止时间。"],
+    warnings: ["リクエストを受け付けました。候補が生成されると確認期限が更新されます。"],
   };
 
   const db = getDb();

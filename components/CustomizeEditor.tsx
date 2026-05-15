@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FabricCanvas } from "@/components/FabricCanvas";
+import type { FabricCanvasHandle } from "@/components/FabricCanvas";
 import type { AigcCandidate } from "@/lib/aigc-types";
 import { AIGC_GENERATIONS_API_PATH, AIGC_MAX_CANDIDATE_COUNT, AIGC_MAX_REFERENCE_ASSET_COUNT, AIGC_MIN_CANDIDATE_COUNT, AIGC_REFERENCE_ASSETS_API_PATH } from "@/lib/aigc-shared-constants";
 import { writeFdmAigcLastToWindow } from "@/lib/shop-aigc-persist";
@@ -214,6 +216,7 @@ interface BaseLayer {
   type: LayerType;
   name: string;
   locked: boolean;
+  hidden?: boolean;
   groupId?: string;
   x: number;
   y: number;
@@ -286,6 +289,7 @@ type TransformMode =
 
 export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const fabricRef = useRef<FabricCanvasHandle | null>(null);
   const dragStartRef = useRef<DragStart | null>(null);
   const dragLayerIdRef = useRef<string | null>(null);
   const transformModeRef = useRef<TransformMode | null>(null);
@@ -333,6 +337,12 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   );
   const [printArea, setPrintArea] = useState<"front" | "back">("front");
 
+  // AI sticker generation state
+  const [stickerKeyword, setStickerKeyword] = useState("");
+  const [stickerBusy, setStickerBusy] = useState(false);
+  const [stickerMsg, setStickerMsg] = useState("");
+  const [stickerHistory, setStickerHistory] = useState<string[]>([]);
+
   /** 买家店 AIGC：`multipart` 参考图 → `POST /api/aigc/generations`（txt2img / img2img / multi_ref） */
   const [aigcPrompt, setAigcPrompt] = useState("");
   const [aigcRefFiles, setAigcRefFiles] = useState<File[]>([]);
@@ -347,6 +357,8 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [aigcMultiRef, setAigcMultiRef] = useState(false);
   const [aigcCandidateCount, setAigcCandidateCount] = useState(2);
   const [aigcNegative, setAigcNegative] = useState("");
+  const [aigcSuppressText, setAigcSuppressText] = useState(true);
+  const [lightboxUrl, setLightboxUrl] = useState("");
   const [aigcTick, setAigcTick] = useState(0);
   const aigcPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -457,6 +469,56 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       setUpscaleBusy(false);
     }
   }, [selectedLayer, upscaleBusy, updateEditor]);
+
+  const onStickerGenerate = useCallback(async () => {
+    const keyword = stickerKeyword.trim();
+    if (!keyword || stickerBusy) return;
+    setStickerBusy(true);
+    setStickerMsg("🎨 生成中...");
+    try {
+      const res = await fetch("/api/design-tools/sticker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword }),
+      });
+      const data = await res.json() as { image_url?: string; error?: string };
+      if (!res.ok || !data.image_url) throw new Error(data.error ?? "unknown error");
+
+      const id = `layer-sticker-${Date.now()}`;
+      updateEditor((prev) => [
+        ...prev,
+        {
+          id,
+          type: "image" as const,
+          name: `スタンプ: ${keyword}`,
+          dataUrl: data.image_url!,
+          locked: false,
+          x: 0,
+          y: 0,
+          scaleX: 0.5,
+          scaleY: 0.5,
+          rotate: 0,
+        },
+      ]);
+      setStickerHistory((prev) => [keyword, ...prev].slice(0, 8));
+      setStickerMsg("✅ キャンバスに追加しました");
+      setStickerKeyword("");
+    } catch (e) {
+      setStickerMsg(`❌ ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setStickerBusy(false);
+    }
+  }, [stickerKeyword, stickerBusy, updateEditor]);
+
+  // Called by FabricCanvas when user drags/scales/rotates an object
+  const onFabricLayerChange = useCallback(
+    (id: string, patch: Partial<CanvasLayer>) => {
+      updateEditor((prev) =>
+        prev.map((l) => (l.id === id ? ({ ...l, ...patch } as CanvasLayer) : l))
+      );
+    },
+    [updateEditor]
+  );
 
   function getActiveTransformLayerIds(): string[] {
     if (selectedLayerIds.length > 1) {
@@ -946,22 +1008,62 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     );
   }
 
+  /** Export all visible layers as a print-ready PNG using Fabric's native toDataURL.
+   *  multiplier=3 → 1560×1560px from a 520px canvas ≈ 300 DPI for 5.2-inch print.
+   */
+  async function flattenCanvas(): Promise<string> {
+    const url = fabricRef.current?.exportPng(3);
+    if (url) return url;
+    throw new Error("キャンバスがまだ初期化されていません");
+  }
+
+  const [flattenedPreviewUrl, setFlattenedPreviewUrl] = useState("");
+  const [flattenBusy, setFlattenBusy] = useState(false);
+  const [flattenMsg, setFlattenMsg] = useState("");
+
+  async function onPreviewFlatten() {
+    setFlattenBusy(true);
+    setFlattenMsg("合成中...");
+    setFlattenedPreviewUrl("");
+    try {
+      const url = await flattenCanvas();
+      setFlattenedPreviewUrl(url);
+      setFlattenMsg("✅ 合成完了");
+    } catch (e) {
+      setFlattenMsg(`❌ ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setFlattenBusy(false);
+    }
+  }
+
   async function onSave() {
     setLoading(true);
     setError("");
     setSaved(null);
     try {
+      // Flatten all visible layers into one print-ready PNG
+      let mergedPng = flattenedPreviewUrl;
+      if (!mergedPng) {
+        try {
+          mergedPng = await flattenCanvas();
+          setFlattenedPreviewUrl(mergedPng);
+        } catch {
+          // Non-fatal: save continues without merged PNG
+        }
+      }
+
       let bodyJson: string;
       try {
         bodyJson = JSON.stringify({
           product_id: product.product_id,
           template_id: product.design_template_id,
+          merged_design_png: mergedPng || null,
           text_layers: layers
             .filter((layer): layer is TextLayer => layer.type === "text")
             .map((layer) => ({ text: layer.text, color: layer.color, x: layer.x, y: layer.y })),
           color_layers: [{ role: "background", value: bgColor }],
           user_images: layers
-            .filter((layer): layer is ImageLayer => layer.type === "image")
+            .filter((layer): layer is ImageLayer => layer.type === "image" && !layer.hidden)
             .map((layer) => ({
               name: layer.name,
               data_url: typeof layer.dataUrl === "string" ? layer.dataUrl : String(layer.dataUrl ?? ""),
@@ -1105,13 +1207,16 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
       }
 
       if (mode === "txt2img" && !trimmedPrompt) {
-        throw new Error("文生图（txt2img）ではプロンプトが必須です。");
+        throw new Error("テキスト生成ではプロンプトが必須です。");
       }
 
       const body: Record<string, unknown> = {
         product_id: product.product_id,
         prompt: trimmedPrompt || undefined,
-        negative_prompt: aigcNegative.trim() || undefined,
+        negative_prompt: [
+          aigcNegative.trim(),
+          aigcSuppressText ? "text, letters, words, watermark, signature, font, typography, characters, kanji, hiragana, katakana, chinese characters, calligraphy" : "",
+        ].filter(Boolean).join(", ") || undefined,
         candidate_count: cc,
         reference_asset_ids: reference_asset_ids.length ? reference_asset_ids : undefined,
         mode,
@@ -1233,170 +1338,63 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
 
   return (
     <>
-      <div className="mx-auto max-w-6xl px-4 pt-4">
-        <div className="rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-3 text-sm leading-relaxed text-amber-950">
+      {/* Lightbox modal for AI candidate preview */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxUrl("")}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]">
+            <img
+              src={lightboxUrl}
+              alt="拡大プレビュー"
+              className="max-h-[85vh] max-w-[85vw] rounded-xl object-contain shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={() => setLightboxUrl("")}
+              className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-zinc-800 shadow-lg hover:bg-zinc-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="mx-auto max-w-6xl px-4 pt-3">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/95 px-4 py-2 text-xs leading-relaxed text-amber-950">
           <strong className="font-semibold">デモについて：</strong>
-          本ページは主に「画像アップロード＋キャンバス上の配置・テキスト編集」の体験です。AI
-          画像生成は MVP として段階的に拡充しています（下の「AI
-          画像」ブロック）。詳細は
+          AI画像生成＋レイヤー編集体験。詳細は
           <Link href="/policies" className="mx-1 font-semibold text-[#e85c22] underline">
             ポリシー
           </Link>
           をご確認ください。
         </div>
       </div>
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-4 lg:grid-cols-[1fr_380px]">
-      <section>
-        <div
-          ref={stageRef}
-          className="relative mx-auto aspect-square w-full max-w-[520px] overflow-hidden rounded-2xl border border-zinc-200 shadow-sm"
-          style={{ backgroundColor: bgColor }}
-          onPointerMove={onStagePointerMove}
-          onPointerUp={onStagePointerUp}
-          tabIndex={0}
-          onKeyDown={(e) => {
-            const step = e.shiftKey ? 10 : 1;
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              nudgeSelection(0, -step);
-            } else if (e.key === "ArrowDown") {
-              e.preventDefault();
-              nudgeSelection(0, step);
-            } else if (e.key === "ArrowLeft") {
-              e.preventDefault();
-              nudgeSelection(-step, 0);
-            } else if (e.key === "ArrowRight") {
-              e.preventDefault();
-              nudgeSelection(step, 0);
-            }
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-3 lg:grid-cols-[1fr_400px] lg:items-start">
+      <section className="lg:sticky lg:top-[104px]">
+        <FabricCanvas
+          ref={fabricRef}
+          layers={layers}
+          bgColor={bgColor}
+          selectedLayerId={selectedLayerId}
+          onLayerChange={onFabricLayerChange}
+          onSelectionChange={(id) => {
+            setSelectedLayerId(id);
+            setSelectedLayerIds(id ? [id] : []);
           }}
-        >
-          <ProductBaseLayer
-            templateId={product.design_template_id}
-            color={productColor}
-            printArea={printArea}
-          />
-          {layers
-            .slice()
-            .reverse()
-            .map((layer) => {
-              if (layer.type === "image") {
-                return (
-                  <div
-                    key={layer.id}
-                    className={`absolute inset-0 ${
-                      selectedLayerId === layer.id ? "ring-2 ring-[#e85c22]/50" : ""
-                    }`}
-                    style={{
-                      transform: `translate(${layer.x}px, ${layer.y}px) scale(${layer.scaleX}, ${layer.scaleY}) rotate(${layer.rotate}deg)`,
-                    }}
-                    onPointerDown={(e) => onLayerPointerDown(e, layer)}
-                  >
-                    <Image
-                      src={layer.dataUrl}
-                      alt={layer.name}
-                      fill
-                      className="object-contain p-6"
-                      sizes="(max-width:768px) 100vw, 520px"
-                    />
-                  </div>
-                );
-              }
-              return (
-                <div
-                  key={layer.id}
-                  className="absolute left-1/2 top-1/2 px-4 text-center"
-                  style={{
-                    transform: `translate(calc(-50% + ${layer.x}px), calc(-50% + ${layer.y}px)) scale(${layer.scaleX}, ${layer.scaleY}) rotate(${layer.rotate}deg)`,
-                    whiteSpace: "nowrap",
-                  }}
-                  onPointerDown={(e) => onLayerPointerDown(e, layer)}
-                >
-                  <p
-                    className={`rounded-md bg-white/70 px-3 py-2 text-lg font-bold shadow-sm backdrop-blur ${
-                      selectedLayerId === layer.id ? "ring-2 ring-[#e85c22]/50" : ""
-                    }`}
-                    style={{ color: layer.color, fontFamily: fontFamily !== "inherit" ? fontFamily : undefined }}
-                  >
-                    {layer.text || "テキストを入力してください"}
-                  </p>
-                </div>
-              );
-            })}
-          {selectedLayer && !selectedLayer.locked ? (
-            <div
-              className="pointer-events-none absolute left-1/2 top-1/2"
-              style={{
-                transform: `translate(${selectedLayer.x}px, ${selectedLayer.y}px) rotate(${selectedLayer.rotate}deg)`,
-              }}
-            >
-              <div
-                className="relative border border-sky-500/70"
-                style={{
-                  width: getLayerBaseSize(selectedLayer).width * selectedLayer.scaleX,
-                  height: getLayerBaseSize(selectedLayer).height * selectedLayer.scaleY,
-                  transform: "translate(-50%, -50%)",
-                }}
-              >
-                {(
-                  [
-                    [-1, -1],
-                    [0, -1],
-                    [1, -1],
-                    [-1, 0],
-                    [1, 0],
-                    [-1, 1],
-                    [0, 1],
-                    [1, 1],
-                  ] as const
-                ).map(([ax, ay]) => (
-                  <button
-                    key={`${ax}-${ay}`}
-                    type="button"
-                    className="pointer-events-auto absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-sky-500"
-                    style={{
-                      left: `${(ax + 1) * 50}%`,
-                      top: `${(ay + 1) * 50}%`,
-                    }}
-                    onPointerDown={(e) => onScaleHandlePointerDown(e, selectedLayer, ax, ay)}
-                  />
-                ))}
-                <button
-                  type="button"
-                  className="pointer-events-auto absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 -translate-y-[180%] rounded-full border border-white bg-violet-500"
-                  onPointerDown={(e) => onRotateHandlePointerDown(e, selectedLayer)}
-                />
-                <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[290%] rounded bg-black/70 px-2 py-0.5 text-[10px] text-white">
-                  {Math.round(getLayerBaseSize(selectedLayer).width * selectedLayer.scaleX)}x
-                  {Math.round(getLayerBaseSize(selectedLayer).height * selectedLayer.scaleY)} ·{" "}
-                  {selectedLayer.rotate}deg
-                </div>
-              </div>
-            </div>
-          ) : null}
-          <div
-            className="pointer-events-none absolute inset-[3%] rounded-xl border border-dashed border-red-400/45"
-            aria-hidden
-          />
-          <div
-            className="pointer-events-none absolute inset-[8%] rounded-lg border-2 border-dashed border-emerald-600/55"
-            aria-hidden
-          />
-          {snapGuides.x != null ? (
-            <div
-              className="pointer-events-none absolute bottom-0 top-0 w-px bg-sky-500/70"
-              style={{ left: `calc(50% + ${snapGuides.x}px)` }}
+          canvasSize={520}
+          globalFontFamily={fontFamily !== "inherit" ? fontFamily : "sans-serif"}
+          renderUnderlay={
+            <ProductBaseLayer
+              templateId={product.design_template_id}
+              color={productColor}
+              printArea={printArea}
             />
-          ) : null}
-          {snapGuides.y != null ? (
-            <div
-              className="pointer-events-none absolute left-0 right-0 h-px bg-sky-500/70"
-              style={{ top: `calc(50% + ${snapGuides.y}px)` }}
-            />
-          ) : null}
-        </div>
+          }
+        />
         <p className="mt-3 text-xs text-zinc-500">
-          PRD §8.2：外周赤枠＝出血イメージ、内側緑枠＝安全区（簡易示意）。複数レイヤー・ロック・Undo/Redo に対応。
+          クリックで選択・ドラッグで移動・コーナーハンドルで拡縮・回転。テキストはダブルクリックで編集。
         </p>
         {dpiBlocksProduction ? (
           <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
@@ -1416,7 +1414,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         ) : null}
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm lg:max-h-[calc(100vh-112px)] lg:overflow-y-auto">
         <div>
           <h1 className="text-xl font-bold text-zinc-900">デザインエディタ v2.5</h1>
           <p className="mt-1 text-sm text-zinc-600">{product.title}</p>
@@ -1477,7 +1475,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-100 px-3 py-2">
               <span className="text-xs text-violet-800">
                 📎 参考画像 {aigcRefFiles.length} 枚セット済み
-                {aigcRefFiles.length >= 2 ? "（multi_ref モード）" : "（img2img モード）"}
+                {aigcRefFiles.length >= 2 ? "（複数画像参照モード）" : "（画像参照モード）"}
               </span>
               <button
                 type="button"
@@ -1494,16 +1492,19 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           )}
           <label className="mt-2 block">
             <span className="mb-1 block text-xs font-medium text-zinc-700">
-              プロンプト（文生图で必須／参考のみの图生图では任意）
+              プロンプト（テキスト生成では必須／画像参照のみでは任意）
             </span>
             <textarea
               value={aigcPrompt}
               onChange={(e) => setAigcPrompt(e.target.value)}
               rows={2}
               maxLength={2000}
-              placeholder="例：推しの雰囲気に合う淡い背景"
+              placeholder="例：夜桜をバックにした幻想的な雰囲気、淡いパステルカラー"
               className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-violet-500"
             />
+            <p className="mt-0.5 text-[10px] text-zinc-400">
+              ※ 日本語または英語で入力してください。特定の実在人物の生成には対応していません。
+            </p>
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-xs font-medium text-zinc-700">ネガティブプロンプト（任意）</span>
@@ -1512,8 +1513,17 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
               onChange={(e) => setAigcNegative(e.target.value)}
               maxLength={2000}
               className="w-full rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-violet-500"
-              placeholder="例：低解像度、テキスト"
+              placeholder="例：低解像度、ぼやけた、暗い"
             />
+          </label>
+          <label className="mt-1.5 flex items-center gap-2 text-xs text-zinc-700">
+            <input
+              type="checkbox"
+              checked={aigcSuppressText}
+              onChange={(e) => setAigcSuppressText(e.target.checked)}
+              className="rounded"
+            />
+            生成画像内の文字・ロゴを自動で除去する（推奨）
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-xs font-medium text-zinc-700">
@@ -1566,16 +1576,25 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
               ) : null}
               <div className="flex gap-2">
                 {aigcCandidates.map((c) => (
-                  <button
-                    key={c.index}
-                    type="button"
-                    onClick={() => setAigcPickIndex(c.index)}
-                    className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${
-                      aigcPickIndex === c.index ? "border-violet-600 ring-2 ring-violet-300" : "border-zinc-200"
-                    }`}
-                  >
-                    <Image src={c.url} alt={`候補 ${c.index}`} fill className="object-cover" sizes="80px" />
-                  </button>
+                  <div key={c.index} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setAigcPickIndex(c.index)}
+                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${
+                        aigcPickIndex === c.index ? "border-violet-600 ring-2 ring-violet-300" : "border-zinc-200"
+                      }`}
+                    >
+                      <Image src={c.url} alt={`候補 ${c.index}`} fill className="object-cover" sizes="80px" />
+                    </button>
+                    <button
+                      type="button"
+                      title="拡大表示"
+                      onClick={() => setLightboxUrl(c.url)}
+                      className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white hover:bg-black/80"
+                    >
+                      🔍
+                    </button>
+                  </div>
                 ))}
               </div>
               <button
@@ -1787,6 +1806,51 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             {upscaleMsg && <p className="mt-1.5 text-xs text-emerald-700">{upscaleMsg}</p>}
           </div>
         )}
+
+        {/* AI Sticker generation panel */}
+        <div className="rounded-xl border border-pink-200 bg-pink-50/60 p-4">
+          <h2 className="mb-2 text-sm font-bold text-pink-900">🎀 AIスタンプ生成</h2>
+          <p className="mb-2 text-xs text-zinc-500">キーワードを入力すると、AIが透明背景の貼り付け用スタンプを生成します</p>
+          <div className="flex gap-2">
+            <input
+              value={stickerKeyword}
+              onChange={(e) => setStickerKeyword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void onStickerGenerate(); }}
+              placeholder="例：星、ハート、桜、推し"
+              className="flex-1 rounded-lg border border-pink-300 bg-white px-3 py-1.5 text-xs outline-none focus:border-pink-500"
+              disabled={stickerBusy}
+            />
+            <button
+              type="button"
+              onClick={() => void onStickerGenerate()}
+              disabled={stickerBusy || !stickerKeyword.trim()}
+              className="rounded-full bg-pink-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-pink-600 disabled:opacity-50"
+            >
+              {stickerBusy ? "生成中..." : "生成"}
+            </button>
+          </div>
+          {stickerMsg && (
+            <p className="mt-1.5 text-xs text-pink-700">{stickerMsg}</p>
+          )}
+          {stickerHistory.length > 0 && (
+            <div className="mt-2">
+              <p className="mb-1 text-xs text-zinc-500">最近のキーワード</p>
+              <div className="flex flex-wrap gap-1">
+                {stickerHistory.map((kw, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setStickerKeyword(kw)}
+                    className="rounded-full border border-pink-300 bg-white px-2 py-0.5 text-xs text-pink-700 hover:bg-pink-100"
+                  >
+                    {kw}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-zinc-700">画像の拡大率</span>
@@ -1858,8 +1922,13 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
               >
                 <input
                   type="checkbox"
-                  checked={selectedLayerIds.includes(layer.id)}
-                  onChange={(e) => toggleMultiSelect(layer.id, e.target.checked)}
+                  title="表示／非表示"
+                  checked={!layer.hidden}
+                  onChange={(e) =>
+                    updateEditor((prev) =>
+                      prev.map((l) => l.id === layer.id ? { ...l, hidden: !e.target.checked } : l)
+                    )
+                  }
                 />
                 <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded border border-zinc-300 bg-zinc-100">
                   {layer.type === "image" ? (
@@ -1900,6 +1969,16 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                 >
                   下へ
                 </button>
+                <button
+                  type="button"
+                  title="削除"
+                  onClick={() =>
+                    updateEditor((prev) => prev.filter((l) => l.id !== layer.id))
+                  }
+                  className="rounded border border-red-300 px-1 text-red-500 hover:bg-red-50"
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>
@@ -1930,6 +2009,41 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-[#e85c22]"
           />
         </label>
+
+        {/* Flatten / merge preview */}
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-bold text-indigo-900">🖨 印刷用合成プレビュー</span>
+            <button
+              type="button"
+              onClick={() => void onPreviewFlatten()}
+              disabled={flattenBusy}
+              className="rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {flattenBusy ? "合成中..." : "レイヤーを合成"}
+            </button>
+          </div>
+          {flattenMsg && <p className="mb-1 text-xs text-indigo-700">{flattenMsg}</p>}
+          {flattenedPreviewUrl && (
+            <div className="flex flex-col gap-2">
+              <img
+                src={flattenedPreviewUrl}
+                alt="合成プレビュー"
+                className="w-full rounded border border-indigo-200 object-contain"
+              />
+              <a
+                href={flattenedPreviewUrl}
+                download="design-merged.png"
+                className="inline-flex items-center justify-center rounded-full border border-indigo-400 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+              >
+                ⬇ PNG をダウンロード
+              </a>
+            </div>
+          )}
+          {!flattenedPreviewUrl && !flattenBusy && (
+            <p className="text-xs text-zinc-400">「レイヤーを合成」を押すと全表示中レイヤーを1枚のPNGに合成して確認できます</p>
+          )}
+        </div>
 
         <button
           type="button"

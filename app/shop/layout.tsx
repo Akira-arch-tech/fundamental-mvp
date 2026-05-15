@@ -10,7 +10,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         <GlobalSiteTabs />
         <StoreSiteHeader storeName={store.store_name} locale={store.locale} />
       </header>
-      <main className="bg-white">{children}</main>
+      <main className="bg-white overflow-x-hidden">{children}</main>
       <footer className="mt-12 border-t border-zinc-200 bg-white py-6 text-center text-xs text-zinc-500">
         FUNDAMENTAL カスタムストア · デモ環境 · 非商用
       </footer>
