@@ -31,6 +31,28 @@ function resizeDataUrlToMax(dataUrl: string, maxPx: number): Promise<string> {
   });
 }
 
+// Compress a File/Blob to ≤maxPx and ≤maxBytes using an off-screen canvas.
+// Keeps aspect ratio; skips resize if already within limits.
+function compressFileForUpload(file: File, maxPx = 1024, maxBytes = 2 * 1024 * 1024): Promise<Blob> {
+  return new Promise((resolve) => {
+    if (file.size <= maxBytes) { resolve(file); return; }
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { naturalWidth: w, naturalHeight: h } = img;
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => resolve(blob ?? file), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Product base layer — rendered at z=0, pointer-events-none, never exported
 // ---------------------------------------------------------------------------
@@ -1219,10 +1241,16 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
 
       if (aigcRefFiles.length > 0) {
         const fd = new FormData();
-        for (const f of aigcRefFiles) fd.append("files", f);
+        for (const f of aigcRefFiles) {
+          const compressed = await compressFileForUpload(f);
+          fd.append("files", compressed, f.name);
+        }
         const up = await fetch(AIGC_REFERENCE_ASSETS_API_PATH, { method: "POST", body: fd });
+        if (!up.ok) {
+          const text = await up.text();
+          throw new Error(`参考画像のアップロードに失敗しました (${up.status}): ${text.slice(0, 120)}`);
+        }
         const upJson = (await up.json()) as { assets?: { asset_id: string }[]; message?: string };
-        if (!up.ok) throw new Error(upJson.message ?? "参考画像のアップロードに失敗しました");
         reference_asset_ids = (upJson.assets ?? []).map((a) => a.asset_id).filter(Boolean);
         if (reference_asset_ids.length === 0) throw new Error("asset_id が返りませんでした");
       }
@@ -1268,6 +1296,12 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = "生成リクエストに失敗しました";
+        try { msg = (JSON.parse(text) as { message?: string }).message ?? msg; } catch { msg = text.slice(0, 120); }
+        throw new Error(msg);
+      }
       const json = (await res.json()) as {
         job_id?: string;
         message?: string;
@@ -1275,7 +1309,6 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         status?: string;
         warnings?: string[];
       };
-      if (!res.ok) throw new Error(json.message ?? json.code ?? "生成リクエストに失敗しました");
       const jobId = json.job_id;
       if (!jobId) throw new Error("job_id がありません");
       setAigcJobId(jobId);
