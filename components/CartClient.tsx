@@ -129,7 +129,7 @@ export function CartClient({ initialItems }: { initialItems: CartItemRecord[] })
               </p>
             ) : null}
             {item.customization_id ? (
-              <p className="mt-1 text-xs text-zinc-500">customization: {item.customization_id}</p>
+              <p className="mt-1 text-xs font-medium text-emerald-600">✓ カスタムデザイン済み</p>
             ) : null}
             <div className="mt-3 flex items-center gap-3">
               <input

@@ -118,18 +118,15 @@ export function CheckoutClient({
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 lg:grid-cols-[1fr_340px]">
       <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h1 className="text-xl font-bold text-zinc-900">ご注文手続き</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          デザインID（控え）：<span className="font-mono text-xs">{customizationId}</span>
-        </p>
         {displayCurrency === "KRW" ? (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">
-            PRD §8.5 / 店铺设置：标价展示 KRW（参考 {JPY_TO_KRW_DISPLAY}）。订单金额仍以 JPY 存储。
+            ※ 表示価格はKRW換算の参考値です（1JPY ≈ {JPY_TO_KRW_DISPLAY}KRW）。決済はJPYで確定します。
           </p>
         ) : null}
 
         <div className="mt-4 grid gap-4">
           <fieldset className="rounded-lg border border-zinc-200 p-3">
-            <legend className="px-1 text-sm font-medium text-zinc-800">お支払い（PRD §8.5）</legend>
+            <legend className="px-1 text-sm font-medium text-zinc-800">お支払い方法</legend>
             <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm">
               <input
                 type="radio"
@@ -139,8 +136,8 @@ export function CheckoutClient({
                 className="mt-1"
               />
               <span>
-                <span className="font-medium text-zinc-900">デモ決済（即時完了）</span>
-                <span className="mt-0.5 block text-xs text-zinc-500">MVP 演示用。本番接 Stripe 等。</span>
+                <span className="font-medium text-zinc-900">テスト決済（即時確定）</span>
+                <span className="mt-0.5 block text-xs text-zinc-500">実際の課金は発生しません。動作確認用です。</span>
               </span>
             </label>
             {stripeEnabled ? (
