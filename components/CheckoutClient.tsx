@@ -40,9 +40,9 @@ export function CheckoutClient({
   stripeEnabled,
 }: CheckoutClientProps) {
   const [qty, setQty] = useState(1);
-  const [recipientName, setRecipientName] = useState("Airick Demo");
-  const [recipientPhone, setRecipientPhone] = useState("090-0000-0000");
-  const [shippingAddress, setShippingAddress] = useState("Tokyo, Chiyoda-ku 1-1-1");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"demo_instant" | "stripe">("demo_instant");
   const [copyrightAgreed, setCopyrightAgreed] = useState(false);
@@ -112,7 +112,11 @@ export function CheckoutClient({
   }
 
   const payDisabled =
-    loading || !copyrightAgreed || (paymentMethod === "stripe" && !stripeEnabled);
+    loading ||
+    !copyrightAgreed ||
+    !recipientName.trim() ||
+    !shippingAddress.trim() ||
+    (paymentMethod === "stripe" && !stripeEnabled);
 
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 lg:grid-cols-[1fr_340px]">
@@ -172,7 +176,7 @@ export function CheckoutClient({
               className="mt-0.5"
             />
             <span className="text-zinc-800">
-              <span className="font-medium">内容・著作権・肖像権の申告</span>（PRD §8.1）
+              <span className="font-medium">内容・著作権・肖像権の申告</span>
               <span className="mt-1 block text-xs leading-relaxed text-zinc-600">
                 アップロード画像は自己所有または使用許諾済みであること、第三者の権利を侵害しないことを確認します。
               </span>
@@ -191,10 +195,11 @@ export function CheckoutClient({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-zinc-700">受取人名</span>
+            <span className="mb-1 block text-sm font-medium text-zinc-700">受取人名 <span className="text-red-500">*</span></span>
             <input
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
+              placeholder="例：山田 花子"
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-[#e85c22]"
             />
           </label>
@@ -204,16 +209,18 @@ export function CheckoutClient({
             <input
               value={recipientPhone}
               onChange={(e) => setRecipientPhone(e.target.value)}
+              placeholder="例：090-1234-5678"
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-[#e85c22]"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-zinc-700">配送先住所</span>
+            <span className="mb-1 block text-sm font-medium text-zinc-700">配送先住所 <span className="text-red-500">*</span></span>
             <textarea
               value={shippingAddress}
               onChange={(e) => setShippingAddress(e.target.value)}
               rows={3}
+              placeholder="例：東京都千代田区〇〇1-1-1"
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-[#e85c22]"
             />
           </label>
