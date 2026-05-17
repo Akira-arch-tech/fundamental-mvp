@@ -1103,33 +1103,29 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setError("");
     setSaved(null);
     try {
-      // Flatten all visible layers into one print-ready PNG
-      let mergedPng = flattenedPreviewUrl;
-      if (!mergedPng) {
-        try {
-          mergedPng = await flattenCanvas();
-          setFlattenedPreviewUrl(mergedPng);
-        } catch {
-          // Non-fatal: save continues without merged PNG
-        }
-      }
+      // Compress user_images to ≤512px before saving to avoid Vercel 4.5 MB body limit.
+      // merged_design_png is intentionally omitted — the API does not use it and it can
+      // be several MB as a base64 string, which would cause a 413 on Vercel.
+      const compressedUserImages = await Promise.all(
+        layers
+          .filter((layer): layer is ImageLayer => layer.type === "image" && !layer.hidden)
+          .map(async (layer) => {
+            const raw = typeof layer.dataUrl === "string" ? layer.dataUrl : String(layer.dataUrl ?? "");
+            const compressed = raw.startsWith("data:") ? await resizeDataUrlToMax(raw, 512) : raw;
+            return { name: layer.name, data_url: compressed };
+          }),
+      );
 
       let bodyJson: string;
       try {
         bodyJson = JSON.stringify({
           product_id: product.product_id,
           template_id: product.design_template_id,
-          merged_design_png: mergedPng || null,
           text_layers: layers
             .filter((layer): layer is TextLayer => layer.type === "text")
             .map((layer) => ({ text: layer.text, color: layer.color, x: layer.x, y: layer.y })),
           color_layers: [{ role: "background", value: bgColor }],
-          user_images: layers
-            .filter((layer): layer is ImageLayer => layer.type === "image" && !layer.hidden)
-            .map((layer) => ({
-              name: layer.name,
-              data_url: typeof layer.dataUrl === "string" ? layer.dataUrl : String(layer.dataUrl ?? ""),
-            })),
+          user_images: compressedUserImages,
           transform_matrix: [1, 0, 0, 1, 0, 0],
           estimated_dpi: estimatedDpi,
         });
@@ -1144,13 +1140,18 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         headers: { "Content-Type": "application/json" },
         body: bodyJson,
       });
-      const json = (await res.json()) as SaveResult & {
-        code?: string;
-        message?: string;
-      };
-      if (!res.ok) {
-        throw new Error(json.message ?? "保存に失敗しました");
+      // Parse JSON safely — non-2xx responses from Vercel edge (e.g. 413) may not be JSON.
+      let json: (SaveResult & { code?: string; message?: string }) | null = null;
+      try {
+        json = (await res.json()) as SaveResult & { code?: string; message?: string };
+      } catch {
+        // Body was not JSON (e.g. Vercel 413 HTML page)
       }
+      if (!res.ok) {
+        const hint = res.status === 413 ? "デザインデータが大きすぎます。画像を減らして再試行してください。" : null;
+        throw new Error(hint ?? json?.message ?? `保存に失敗しました (HTTP ${res.status})`);
+      }
+      if (!json) throw new Error("サーバーからの応答が不正です。再試行してください。");
       setSaved(json);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");

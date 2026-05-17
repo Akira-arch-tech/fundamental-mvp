@@ -4,15 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/", key: "home", label: "トップ", title: "营销落地（日文）" },
-  {
-    href: "/shop",
-    key: "store",
-    label: "ストア",
-    title: "デモ店：/shop と店内フロー",
-  },
-  { href: "/policies", key: "policies", label: "ポリシー", title: "政策页" },
-  { href: "/b/login", key: "back", label: "管理", title: "后台登录" },
+  { href: "/", key: "home", label: "トップ", title: "トップページ" },
+  { href: "/shop", key: "store", label: "ストア", title: "商品・カスタマイズ" },
+  { href: "/policies", key: "policies", label: "ポリシー", title: "利用規約・プライバシー" },
+  { href: "/b/login", key: "back", label: "管理", title: "管理者ログイン" },
 ] as const;
 
 function tabActive(pathname: string, key: (typeof TABS)[number]["key"]): boolean {
@@ -52,7 +47,7 @@ export function GlobalSiteTabs() {
   return (
     <nav
       className={`border-b ${s.bar} backdrop-blur-sm`}
-      aria-label="站点分区"
+      aria-label="サイトナビゲーション"
     >
       <div className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-3 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
         {TABS.map((tab) => {
