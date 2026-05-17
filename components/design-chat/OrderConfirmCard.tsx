@@ -19,7 +19,11 @@ const PRODUCT_SLUG: Record<string, string> = {
 export default function OrderConfirmCard({ data }: Props) {
   const label = PRODUCT_LABEL[data.productType] ?? data.productType;
   const slug = PRODUCT_SLUG[data.productType] ?? "free-acrylic-stand-clear";
-  const customizePath = `/shop/customize/${slug}`;
+  const params = new URLSearchParams({
+    qty: String(data.quantity),
+    chatSize: data.size,
+  });
+  const customizePath = `/shop/customize/${slug}?${params.toString()}`;
 
   return (
     <div className="my-2 rounded-2xl overflow-hidden shadow-md border border-[#06C755]/30">

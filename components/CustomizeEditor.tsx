@@ -10,6 +10,7 @@ import { AIGC_GENERATIONS_API_PATH, AIGC_MAX_CANDIDATE_COUNT, AIGC_MAX_REFERENCE
 import { writeFdmAigcLastToWindow } from "@/lib/shop-aigc-persist";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
+import { CheckoutDrawer } from "@/components/CheckoutDrawer";
 
 // Resize a base64 data URL to max `maxPx` on the longest side using an
 // off-screen canvas. Keeps aspect ratio; returns original if already small.
@@ -329,7 +330,20 @@ type TransformMode =
       startAngleDeg: number;
     };
 
-export function CustomizeEditor({ product }: { product: ProductDetail }) {
+export function CustomizeEditor({
+  product,
+  initQty = 1,
+  chatSize = "",
+  stripeEnabled = false,
+}: {
+  product: ProductDetail;
+  /** チャットフローから引き継いだ初期数量 */
+  initQty?: number;
+  /** チャットフローから引き継いだサイズ名（表示専用） */
+  chatSize?: string;
+  /** Stripe決済が有効かどうか（サーバー側で判定してpropsとして渡す） */
+  stripeEnabled?: boolean;
+}) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const fabricRef = useRef<FabricCanvasHandle | null>(null);
   const dragStartRef = useRef<DragStart | null>(null);
@@ -357,12 +371,13 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [bgColor, setBgColor] = useState("#ffffff");
   const [snapGuides, setSnapGuides] = useState<{ x?: number; y?: number }>({});
   const [estimatedDpi, setEstimatedDpi] = useState(220);
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(initQty);
   const [loading, setLoading] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [error, setError] = useState("");
   const [cartMsg, setCartMsg] = useState("");
   const [saved, setSaved] = useState<SaveResult | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   // Unified upload — pending state before user chooses canvas or AI
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -2074,6 +2089,11 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           />
           <span className="text-xs text-zinc-500">{estimatedDpi} DPI</span>
         </label>
+        {chatSize && (
+          <div className="rounded-lg bg-[#F0FDF4] border border-[#06C755]/30 px-3 py-2 text-xs text-zinc-700">
+            💬 チャットで選択：<strong className="text-[#06C755]">{chatSize}</strong>
+          </div>
+        )}
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-zinc-700">点数</span>
           <input
@@ -2141,60 +2161,57 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         ) : null}
 
         {saved ? (
-          <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
-            <p>
-              customization_id:{" "}
-              <span className="font-mono">{saved.customization_id}</span>
+          <div className="space-y-2 rounded-xl border border-green-200 bg-green-50 p-3">
+            {/* DPI ステータス */}
+            <p className={`text-xs ${dpiTone}`}>
+              🖨 DPI: {saved.dpi_check_result.estimated_dpi} / 推奨 {saved.dpi_check_result.min_recommended_dpi}
+              {" — "}{saved.dpi_check_result.message}
             </p>
-            <p>
-              requestId: <span className="font-mono">{saved.requestId}</span>
-            </p>
-            <p className={dpiTone}>
-              DPI: {saved.dpi_check_result.estimated_dpi} / 推奨{" "}
-              {saved.dpi_check_result.min_recommended_dpi}
-            </p>
-            <p>{saved.dpi_check_result.message}</p>
-            {saved.warnings.length > 0 ? (
-              <ul className="list-disc pl-5">
-                {saved.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
+            {saved.warnings.length > 0 && (
+              <ul className="list-disc pl-4 text-xs text-amber-700">
+                {saved.warnings.map((w) => <li key={w}>{w}</li>)}
               </ul>
-            ) : null}
-            <a
-              href={saved.preview_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-block text-[#e85c22] underline"
-            >
-              プレビュー情報
-            </a>
-            <br />
-            {dpiBlocksProduction ? (
-              <span className="inline-block text-xs text-red-600">注文へ進む（DPI 不足のため停止）</span>
-            ) : (
-              <Link
-                href={`${storePath("/checkout")}?customization_id=${saved.customization_id}`}
-                className="inline-block text-[#e85c22] underline"
-              >
-                このデザインで注文へ進む →
-              </Link>
             )}
-            <br />
-            <button
-              type="button"
-              onClick={onAddToCart}
-              disabled={addingToCart || dpiBlocksProduction}
-              className="mt-1 inline-flex h-8 items-center justify-center rounded-full border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {addingToCart ? "追加中…" : "カートに入れる"}
-            </button>
-            <Link href={storePath("/cart")} className="ml-2 text-[#e85c22] underline">
-              カートを開く
-            </Link>
+            {/* 注文ボタン（ドロワーを開く） */}
+            {dpiBlocksProduction ? (
+              <p className="text-xs text-red-600">⚠ DPI 不足のため注文できません。画像解像度をご確認ください。</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCheckoutOpen(true)}
+                className="inline-flex h-10 w-full items-center justify-center rounded-full bg-[#e85c22] text-sm font-bold text-white hover:bg-[#d14f1b]"
+              >
+                このデザインで注文へ →
+              </button>
+            )}
+            {/* カートに入れる（サブアクション） */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onAddToCart}
+                disabled={addingToCart || dpiBlocksProduction}
+                className="inline-flex h-8 items-center justify-center rounded-full border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {addingToCart ? "追加中…" : "カートに入れる"}
+              </button>
+              <Link href={storePath("/cart")} className="text-xs text-[#e85c22] underline">
+                カートを開く
+              </Link>
+            </div>
           </div>
         ) : null}
         {cartMsg ? <p className="text-xs text-zinc-500">{cartMsg}</p> : null}
+
+        {/* 結帳 Drawer */}
+        {checkoutOpen && saved && (
+          <CheckoutDrawer
+            saved={saved}
+            product={product}
+            qty={qty}
+            stripeEnabled={stripeEnabled}
+            onClose={() => setCheckoutOpen(false)}
+          />
+        )}
 
         <Link
           href={storePath(`/products/${product.slug}`)}
