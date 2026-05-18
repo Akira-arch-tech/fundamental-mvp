@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { CustomizationPreviewImage } from "@/components/CustomizationPreviewImage";
 import type { ProductDetail } from "@/lib/types";
 import {
   JPY_TO_KRW_DISPLAY,
@@ -283,6 +284,11 @@ export function CheckoutClient({
 
       <aside className="h-fit rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-bold text-zinc-800">注文内容</h2>
+        <CustomizationPreviewImage
+          customizationId={customizationId}
+          alt={`${product.title} のデザインプレビュー`}
+          className="mt-3 h-36 w-full rounded-xl border border-zinc-200 object-contain bg-zinc-50"
+        />
         <p className="mt-2 text-sm text-zinc-700">{product.title}</p>
         <div className="mt-3 space-y-1 text-sm text-zinc-600">
           <p>

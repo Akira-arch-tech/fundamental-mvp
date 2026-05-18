@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CustomizationPreviewImage } from "@/components/CustomizationPreviewImage";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
 
@@ -187,7 +188,11 @@ export function CheckoutDrawer({ saved, product, qty, stripeEnabled, onClose }: 
           ) : (
             /* 注文フォーム */
             <div className="space-y-4">
-              {/* 注文サマリー */}
+              <CustomizationPreviewImage
+                customizationId={saved.customization_id}
+                alt={`${product.title} のデザインプレビュー`}
+                className="mx-auto h-40 w-full max-w-[200px] rounded-xl border border-zinc-200 object-contain bg-zinc-50"
+              />
               <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-zinc-500">単価</span>
@@ -204,6 +209,14 @@ export function CheckoutDrawer({ saved, product, qty, stripeEnabled, onClose }: 
                   </span>
                 </div>
               </div>
+              <Link
+                href={storePath(
+                  `/checkout?customization_id=${encodeURIComponent(saved.customization_id)}`,
+                )}
+                className="block text-center text-xs text-[#e85c22] underline hover:text-[#d14f1b]"
+              >
+                別ページで決済する
+              </Link>
 
               {/* DPI警告 */}
               {saved.warnings.length > 0 && (

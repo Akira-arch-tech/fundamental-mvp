@@ -2184,6 +2184,16 @@ export function CustomizeEditor({
                 このデザインで注文へ →
               </button>
             )}
+            {saved && !dpiBlocksProduction ? (
+              <Link
+                href={storePath(
+                  `/checkout?customization_id=${encodeURIComponent(saved.customization_id)}`,
+                )}
+                className="block text-center text-xs text-[#e85c22] underline hover:text-[#d14f1b]"
+              >
+                別ページで決済する
+              </Link>
+            ) : null}
             {/* カートに入れる（サブアクション） */}
             <div className="flex items-center gap-2">
               <button
