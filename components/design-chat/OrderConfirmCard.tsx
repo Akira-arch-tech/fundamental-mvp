@@ -31,8 +31,9 @@ export default function OrderConfirmCard({ data }: Props) {
       <div className="bg-[#06C755] px-4 py-3 flex items-center gap-2">
         <span className="text-xl">✅</span>
         <div>
-          <p className="text-white font-bold text-sm">デザインの内容が決まりました！</p>
-          <p className="text-white/80 text-xs">以下の内容でご注文に進めます</p>
+          <p className="text-white font-bold text-sm">ご注文を受け付けました！</p>
+          <p className="text-white/90 text-xs font-mono tracking-wide">注文番号：{data.orderId}</p>
+          <p className="text-white/80 text-xs mt-0.5">以下の内容でご注文に進めます</p>
         </div>
       </div>
 

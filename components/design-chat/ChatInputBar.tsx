@@ -5,9 +5,10 @@ import { useState, useRef, useCallback } from "react";
 interface Props {
   onSend: (text: string) => void;
   disabled?: boolean;
+  isDemo?: boolean;
 }
 
-export default function ChatInputBar({ onSend, disabled }: Props) {
+export default function ChatInputBar({ onSend, disabled, isDemo }: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -61,7 +62,7 @@ export default function ChatInputBar({ onSend, disabled }: Props) {
             onChange={handleInput}
             onKeyDown={handleKeyDown}
             disabled={disabled}
-            placeholder={disabled ? "AIが回答中..." : "メッセージを入力"}
+            placeholder={disabled ? "AIが回答中..." : isDemo ? "デモモード中です — クリックして次へ進む" : "メッセージを入力"}
             rows={1}
             className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none outline-none leading-5 max-h-[120px] disabled:opacity-50"
             style={{ minHeight: "20px" }}
