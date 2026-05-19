@@ -1626,30 +1626,33 @@ export function CustomizeEditor({
                   onClick={onUseAsAiRef}
                   className="flex-1 rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
                 >
-                  AIで新しいデザインを生成する
+                  ②AIの参照画像として使う
                 </button>
               </div>
+              <p className="mt-2 text-[10px] text-zinc-400">
+                ※「canvasに置く」と「②AIの参照」は同時に両方できます
+              </p>
             </div>
           )}
         </div>
 
-        {/* ━━━ STEP 2: AIデザイン生成 ━━━━━━━━━━━━━━━━━━━━━━ */}
+        {/* ━━━ STEP 2: AIデザイン生成（①と並行・独立して使用可）━━ */}
         <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm text-zinc-800">
-          <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-500">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-500">
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold text-white">2</span>
             AIでデザインを生成する
           </p>
-          <h2 className="mb-1 text-sm font-bold text-violet-900">✨ AI 画像生成（fal.ai）</h2>
-          <p className="mb-2 text-[11px] text-zinc-500">
-            アップロード画像をAI参照にすると図生图・多图生图が可能。参照なしでもテキストのみで生成できます。
+          <p className="mb-3 text-[11px] text-zinc-400">
+            ①の画像アップロードとは独立して使用できます。プロンプトだけで生成（T2I）も、①でアップロードした画像を参照に使う（I2I / Multi-ref）も、どちらも選択可能です。
           </p>
+          <h2 className="mb-1 text-sm font-bold text-violet-900">✨ AI 画像生成（fal.ai）</h2>
 
           {/* Reference image status — set via unified upload above */}
           {aigcRefFiles.length > 0 ? (
             <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-100 px-3 py-2">
               <span className="text-xs text-violet-800">
                 📎 参考画像 {aigcRefFiles.length} 枚セット済み
-                {aigcRefFiles.length >= 2 ? "（複数画像参照モード）" : "（画像参照モード）"}
+                {aigcRefFiles.length >= 2 ? "（複数画像参照モード / multi-ref）" : "（画像参照モード / img2img）"}
               </span>
               <button
                 type="button"
@@ -1661,7 +1664,7 @@ export function CustomizeEditor({
             </div>
           ) : (
             <p className="mt-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
-              参考画像なし（プロンプトのみで生成）。上の「AIで新しいデザインを生成する」から参考画像をセットできます。
+              参考画像なし ＝ テキストのみで生成（T2I）。①でアップロードした画像を「AIで生成する」で追加すると I2I / Multi-ref に切り替わります。
             </p>
           )}
           <label className="mt-2 block">
