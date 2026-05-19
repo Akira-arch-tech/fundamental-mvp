@@ -1472,6 +1472,13 @@ export function CustomizeEditor({
             setSelectedLayerId(id);
             setSelectedLayerIds(id ? [id] : []);
           }}
+          onLayerScaleInit={(id, sx, sy) => {
+            // Reconcile layer state with Fabric's ratio-adjusted initial scale
+            // (bypasses history to avoid polluting undo stack)
+            setLayers((prev) =>
+              prev.map((l) => (l.id === id ? { ...l, scaleX: sx, scaleY: sy } : l)),
+            );
+          }}
           canvasSize={520}
           globalFontFamily={fontFamily !== "inherit" ? fontFamily : "sans-serif"}
           renderUnderlay={
@@ -1556,8 +1563,86 @@ export function CustomizeEditor({
           </div>
         </div>
 
+        {/* ━━━ STEP 1: 素材アップロード ━━━━━━━━━━━━━━━━━━━━━━ */}
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-500">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-400 text-[9px] font-bold text-white">1</span>
+            素材を準備する
+          </p>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">画像をアップロード</span>
+
+          {!pendingFile ? (
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-zinc-200 bg-white px-4 py-3 transition-colors hover:border-zinc-400 hover:bg-zinc-100">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0 text-zinc-400">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-zinc-700">クリックして画像を選択</p>
+                <p className="text-xs text-zinc-400">PNG / JPG / WebP</p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          ) : (
+            <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pendingDataUrl}
+                  alt="preview"
+                  className="h-14 w-14 shrink-0 rounded-lg border border-zinc-100 object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-zinc-700">{pendingFile.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">どちらで使用しますか？</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPendingFile(null); setPendingDataUrl(""); }}
+                  className="shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+                  aria-label="キャンセル"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={onPlaceOnCanvas}
+                  className="flex-1 rounded-full bg-zinc-800 px-3 py-2 text-xs font-bold text-white hover:bg-zinc-700"
+                >
+                  このままcanvasに置く
+                </button>
+                <button
+                  type="button"
+                  onClick={onUseAsAiRef}
+                  className="flex-1 rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
+                >
+                  AIで新しいデザインを生成する
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ━━━ STEP 2: AIデザイン生成 ━━━━━━━━━━━━━━━━━━━━━━ */}
         <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm text-zinc-800">
-          <h2 className="text-sm font-bold text-violet-900">✨ AI 画像生成（fal.ai）</h2>
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-500">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold text-white">2</span>
+            AIでデザインを生成する
+          </p>
+          <h2 className="mb-1 text-sm font-bold text-violet-900">✨ AI 画像生成（fal.ai）</h2>
+          <p className="mb-2 text-[11px] text-zinc-500">
+            アップロード画像をAI参照にすると図生图・多图生图が可能。参照なしでもテキストのみで生成できます。
+          </p>
 
           {/* Reference image status — set via unified upload above */}
           {aigcRefFiles.length > 0 ? (
@@ -1806,98 +1891,7 @@ export function CustomizeEditor({
           </label>
         </div>
 
-        <div>
-          <span className="mb-2 block text-sm font-medium text-zinc-700">画像をアップロード</span>
-
-          {!pendingFile ? (
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 transition-colors hover:border-zinc-400 hover:bg-zinc-100">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0 text-zinc-400">
-                <rect x="3" y="3" width="18" height="18" rx="3" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-zinc-700">クリックして画像を選択</p>
-                <p className="text-xs text-zinc-400">PNG / JPG / WebP</p>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
-              />
-            </label>
-          ) : (
-            <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pendingDataUrl}
-                  alt="preview"
-                  className="h-14 w-14 shrink-0 rounded-lg border border-zinc-100 object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-zinc-700">{pendingFile.name}</p>
-                  <p className="mt-0.5 text-xs text-zinc-400">どちらで使用しますか？</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setPendingFile(null); setPendingDataUrl(""); }}
-                  className="shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
-                  aria-label="キャンセル"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={onPlaceOnCanvas}
-                  className="flex-1 rounded-full bg-zinc-800 px-3 py-2 text-xs font-bold text-white hover:bg-zinc-700"
-                >
-                  このままcanvasに置く
-                </button>
-                <button
-                  type="button"
-                  onClick={onUseAsAiRef}
-                  className="flex-1 rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
-                >
-                  AIで新しいデザインを生成する
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {selectedLayer?.type === "image" && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-            <p className="mb-2 text-xs font-bold text-emerald-800">✨ AI 画像ツール</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void onRmbg()}
-                disabled={rmbgBusy}
-                className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {rmbgBusy ? "処理中..." : "背景を削除"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void onUpscale()}
-                disabled={upscaleBusy}
-                className="rounded-full border border-emerald-600 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-              >
-                {upscaleBusy ? "処理中..." : "AI 超解像 (4×)"}
-              </button>
-            </div>
-            {rmbgMsg && <p className="mt-1.5 text-xs text-emerald-700">{rmbgMsg}</p>}
-            {upscaleMsg && <p className="mt-1.5 text-xs text-emerald-700">{upscaleMsg}</p>}
-          </div>
-        )}
-
-        {/* AI Sticker generation panel */}
+        {/* ━━━ AIスタンプ生成（ステップ2内のサブ機能）━━━━━━━━ */}
         <div className="rounded-xl border border-pink-200 bg-pink-50/60 p-4">
           <h2 className="mb-2 text-sm font-bold text-pink-900">🎀 AIスタンプ生成</h2>
           <p className="mb-2 text-xs text-zinc-500">キーワードを入力すると、AIが透明背景の貼り付け用スタンプを生成します</p>
@@ -2072,6 +2066,49 @@ export function CustomizeEditor({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ━━━ STEP 3: 画像を仕上げる（AIツール）━━━━━━━━━━━ */}
+        <div className={`rounded-xl border p-4 transition-all ${
+          selectedLayer?.type === "image"
+            ? "border-emerald-200 bg-emerald-50/60"
+            : "border-zinc-200 bg-zinc-50/60 opacity-60"
+        }`}>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-600">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">3</span>
+            画像を仕上げる
+          </p>
+          {selectedLayer?.type === "image" ? (
+            <>
+              <p className="mb-3 text-[11px] text-zinc-500">
+                画像レイヤーを選択中。背景削除・超解像はキャンバスに置いた後の最終仕上げです。操作はundo（元に戻す）で取り消せます。
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void onRmbg()}
+                  disabled={rmbgBusy}
+                  className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {rmbgBusy ? "処理中..." : "背景を削除"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onUpscale()}
+                  disabled={upscaleBusy}
+                  className="rounded-full border border-emerald-600 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                >
+                  {upscaleBusy ? "処理中..." : "AI 超解像 (4×)"}
+                </button>
+              </div>
+              {rmbgMsg && <p className="mt-1.5 text-xs text-emerald-700">{rmbgMsg}</p>}
+              {upscaleMsg && <p className="mt-1.5 text-xs text-emerald-700">{upscaleMsg}</p>}
+            </>
+          ) : (
+            <p className="text-xs text-zinc-400">
+              画像レイヤーを選択すると背景削除・AI超解像が使用できます
+            </p>
+          )}
         </div>
 
         <label className="block">

@@ -58,6 +58,9 @@ interface Props {
   selectedLayerId: string | null;
   onLayerChange: (id: string, patch: Partial<CanvasLayer>) => void;
   onSelectionChange: (id: string | null) => void;
+  /** Called once when a brand-new image object is first rendered with the
+   *  ratio-adjusted scale so the parent can reconcile layer.scaleX/Y. */
+  onLayerScaleInit?: (id: string, scaleX: number, scaleY: number) => void;
   canvasSize?: number;
   renderUnderlay?: React.ReactNode;
   globalFontFamily?: string;
@@ -65,7 +68,7 @@ interface Props {
 
 // ── Component ──────────────────────────────────────────────────────────────
 export const FabricCanvas = forwardRef<FabricCanvasHandle, Props>(function FabricCanvas(
-  { layers, bgColor, selectedLayerId, onLayerChange, onSelectionChange, canvasSize = 520, renderUnderlay, globalFontFamily = "sans-serif" },
+  { layers, bgColor, selectedLayerId, onLayerChange, onSelectionChange, onLayerScaleInit, canvasSize = 520, renderUnderlay, globalFontFamily = "sans-serif" },
   ref
 ) {
   const canvasElRef = useRef<HTMLCanvasElement>(null);
@@ -76,8 +79,10 @@ export const FabricCanvas = forwardRef<FabricCanvasHandle, Props>(function Fabri
   // Latest callbacks in a ref so event handlers don't go stale
   const onLayerChangeRef = useRef(onLayerChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
+  const onLayerScaleInitRef = useRef(onLayerScaleInit);
   onLayerChangeRef.current = onLayerChange;
   onSelectionChangeRef.current = onSelectionChange;
+  onLayerScaleInitRef.current = onLayerScaleInit;
 
   // ── Bootstrap Fabric canvas once ────────────────────────────────────────
   useEffect(() => {
@@ -128,7 +133,7 @@ export const FabricCanvas = forwardRef<FabricCanvasHandle, Props>(function Fabri
       });
 
       // Initial layer sync
-      void syncLayersToFabric(fc, layers, objMapRef.current, canvasSize, FabricImage, FabricText, globalFontFamily);
+      void syncLayersToFabric(fc, layers, objMapRef.current, canvasSize, FabricImage, FabricText, globalFontFamily, onLayerScaleInitRef);
     });
 
     return () => {
@@ -153,7 +158,7 @@ export const FabricCanvas = forwardRef<FabricCanvasHandle, Props>(function Fabri
     if (!fc) return;
     import("fabric").then(({ FabricImage, FabricText }) => {
       suppressSyncRef.current = true;
-      void syncLayersToFabric(fc, layers, objMapRef.current, canvasSize, FabricImage, FabricText, globalFontFamily).then(
+      void syncLayersToFabric(fc, layers, objMapRef.current, canvasSize, FabricImage, FabricText, globalFontFamily, onLayerScaleInitRef).then(
         () => { suppressSyncRef.current = false; }
       );
     });
@@ -214,7 +219,8 @@ async function syncLayersToFabric(
   canvasSize: number,
   FabricImage: FabricImageCtor,
   FabricText: FabricTextCtor,
-  globalFontFamily = "sans-serif"
+  globalFontFamily = "sans-serif",
+  onLayerScaleInitRef?: React.MutableRefObject<((id: string, sx: number, sy: number) => void) | undefined>,
 ) {
   const center = canvasSize / 2;
   const incomingIds = new Set(layers.map((l) => l.id));
@@ -258,13 +264,19 @@ async function syncLayersToFabric(
           const img = await FabricImage.fromURL(imgLayer.dataUrl, { crossOrigin: "anonymous" });
           const box = canvasSize - 48;
           const ratio = Math.min(box / (img.width || 1), box / (img.height || 1));
-          img.set({ ...commonProps, scaleX: layer.scaleX * ratio, scaleY: layer.scaleY * ratio });
+          const initScaleX = layer.scaleX * ratio;
+          const initScaleY = layer.scaleY * ratio;
+          img.set({ ...commonProps, scaleX: initScaleX, scaleY: initScaleY });
           const tagged = asTagged(img);
           tagged._layerId = layer.id;
           tagged._dataUrl = imgLayer.dataUrl;
           fc.add(img);
           objMap.set(layer.id, img);
           fc.requestRenderAll();
+          // Report actual ratio-adjusted scale back to parent so layer state
+          // stays in sync (prevents scale jump on next syncLayersToFabric call).
+          const cb = onLayerScaleInitRef?.current;
+          if (cb) setTimeout(() => cb(layer.id, initScaleX, initScaleY), 0);
           continue;
         } catch {
           continue;
