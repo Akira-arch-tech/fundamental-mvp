@@ -757,6 +757,36 @@ export function CustomizeEditor({
     setPendingDataUrl("");
   }
 
+  /** canvas に置きつつ AI 参照にも同時追加 */
+  function onPlaceOnCanvasAndRef() {
+    const file = pendingFile;
+    const dataUrl = pendingDataUrl;
+    if (!file || !dataUrl) return;
+    const id = `layer_img_${Date.now()}`;
+    const newLayer: ImageLayer = {
+      id, type: "image", name: file.name, dataUrl,
+      locked: false, x: 0, y: 0, scaleX: 1, scaleY: 1, rotate: 0,
+    };
+    updateEditor((prev) => [newLayer, ...prev]);
+    setSelectedLayerId(id);
+    setSelectedLayerIds([id]);
+    setPendingFile(null);
+    setPendingDataUrl("");
+    setAigcRefFiles((prev) => [...prev, file].slice(0, AIGC_MAX_REFERENCE_ASSET_COUNT));
+  }
+
+  /** キャンバス上の既存画像レイヤーを AIGC 参照に追加 */
+  function onAddLayerAsAigcRef(layer: ImageLayer) {
+    fetch(layer.dataUrl)
+      .then((r) => r.blob())
+      .then((blob) => {
+        const ext = blob.type.includes("png") ? "png" : "jpg";
+        const file = new File([blob], layer.name || `canvas-image.${ext}`, { type: blob.type || "image/jpeg" });
+        setAigcRefFiles((prev) => [...prev, file].slice(0, AIGC_MAX_REFERENCE_ASSET_COUNT));
+      })
+      .catch(() => {/* dataUrl fetch failed — skip silently */});
+  }
+
   function onLayerPointerDown(e: React.PointerEvent<HTMLDivElement>, layer: CanvasLayer) {
     if (layer.locked) return;
     pushHistorySnapshot(layers, selectedLayerId);
@@ -1613,25 +1643,31 @@ export function CustomizeEditor({
                   </svg>
                 </button>
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-col gap-2">
                 <button
                   type="button"
-                  onClick={onPlaceOnCanvas}
-                  className="flex-1 rounded-full bg-zinc-800 px-3 py-2 text-xs font-bold text-white hover:bg-zinc-700"
+                  onClick={onPlaceOnCanvasAndRef}
+                  className="w-full rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
                 >
-                  このままcanvasに置く
+                  ✦ canvasに置く ＋ ②AIの参照にも追加
                 </button>
-                <button
-                  type="button"
-                  onClick={onUseAsAiRef}
-                  className="flex-1 rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
-                >
-                  ②AIの参照画像として使う
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={onPlaceOnCanvas}
+                    className="flex-1 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    canvasにのみ置く
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onUseAsAiRef}
+                    className="flex-1 rounded-full border border-violet-300 bg-white px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50"
+                  >
+                    ②AIの参照のみ
+                  </button>
+                </div>
               </div>
-              <p className="mt-2 text-[10px] text-zinc-400">
-                ※「canvasに置く」と「②AIの参照」は同時に両方できます
-              </p>
             </div>
           )}
         </div>
@@ -1663,9 +1699,36 @@ export function CustomizeEditor({
               </button>
             </div>
           ) : (
-            <p className="mt-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
-              参考画像なし ＝ テキストのみで生成（T2I）。①でアップロードした画像を「AIで生成する」で追加すると I2I / Multi-ref に切り替わります。
-            </p>
+            <div className="mt-2 space-y-2">
+              <p className="rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
+                参考画像なし ＝ テキストのみで生成（T2I）
+              </p>
+              {/* キャンバス上の画像レイヤーをワンクリックで参照に追加 */}
+              {layers.some((l) => l.type === "image") && (
+                <div className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2">
+                  <p className="mb-1.5 text-[11px] font-medium text-violet-700">
+                    キャンバス上の画像を参照に追加（I2I / Multi-ref）
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {layers
+                      .filter((l): l is ImageLayer => l.type === "image")
+                      .map((l) => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => onAddLayerAsAigcRef(l)}
+                          className="flex items-center gap-1.5 rounded-full border border-violet-300 bg-white px-2.5 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-100"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={l.dataUrl} alt="" className="h-4 w-4 rounded object-cover" />
+                          {l.name.length > 16 ? l.name.slice(0, 14) + "…" : l.name}
+                          を参照に追加
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <label className="mt-2 block">
             <span className="mb-1 block text-xs font-medium text-zinc-700">
