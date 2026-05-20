@@ -10,7 +10,7 @@ import type { SortKey } from "@/lib/types";
 
 export const metadata = {
   title: "商品一覧 | FUNDAMENTAL",
-  description: "推し活・ノベルティ向け定制品（デモカタログ）",
+  description: "推し活・ノベルティ向けオリジナルグッズ（アクリルスタンド・Tシャツ・缶バッジなど）",
 };
 
 export default async function ProductsPage({

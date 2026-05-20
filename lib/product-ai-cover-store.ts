@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const FILE = path.join(process.cwd(), ".fdm-product-ai-cover.json");
+const FILE = process.env.VERCEL ? "/tmp/.fdm-product-ai-cover.json" : path.join(process.cwd(), ".fdm-product-ai-cover.json");
 
 type FileShape = {
   covers: Record<string, { cover_url: string; updated_at: string }>;

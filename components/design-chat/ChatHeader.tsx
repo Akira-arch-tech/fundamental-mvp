@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 
-export default function ChatHeader() {
+interface Props {
+  isDemo?: boolean;
+}
+
+export default function ChatHeader({ isDemo }: Props) {
   const router = useRouter();
 
   return (
@@ -28,6 +32,11 @@ export default function ChatHeader() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        {isDemo && (
+          <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-semibold">
+            🎬 デモ
+          </span>
+        )}
         <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
         <span className="text-xs text-white/90">オンライン</span>
       </div>

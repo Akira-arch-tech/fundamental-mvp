@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { SupportTicketRecord } from "@/lib/types";
 
-const STORE_PATH = path.join(process.cwd(), ".support-tickets-store.json");
+const STORE_PATH = process.env.VERCEL ? "/tmp/.support-tickets-store.json" : path.join(process.cwd(), ".support-tickets-store.json");
 
 function newSupportTicketId(): string {
   const hex = () => Math.random().toString(16).slice(2, 10);

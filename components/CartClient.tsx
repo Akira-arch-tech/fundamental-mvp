@@ -8,9 +8,9 @@ import type { CartItemRecord } from "@/lib/types";
 export function CartClient({ initialItems }: { initialItems: CartItemRecord[] }) {
   const [items, setItems] = useState(initialItems);
   const [loadingId, setLoadingId] = useState<string>("");
-  const [recipientName, setRecipientName] = useState("Airick Batch");
-  const [recipientPhone, setRecipientPhone] = useState("090-0000-0000");
-  const [shippingAddress, setShippingAddress] = useState("Tokyo, Chiyoda-ku 1-1-1");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
   const [copyrightAgreed, setCopyrightAgreed] = useState(false);
   const [submittingBatch, setSubmittingBatch] = useState(false);
   const [batchResult, setBatchResult] = useState<{
@@ -129,7 +129,7 @@ export function CartClient({ initialItems }: { initialItems: CartItemRecord[] })
               </p>
             ) : null}
             {item.customization_id ? (
-              <p className="mt-1 text-xs text-zinc-500">customization: {item.customization_id}</p>
+              <p className="mt-1 text-xs font-medium text-emerald-600">✓ カスタムデザイン済み</p>
             ) : null}
             <div className="mt-3 flex items-center gap-3">
               <input
@@ -165,10 +165,11 @@ export function CartClient({ initialItems }: { initialItems: CartItemRecord[] })
         </p>
         <div className="mt-4 space-y-2">
           <label className="block">
-            <span className="mb-1 block text-xs text-zinc-600">お届け先 氏名</span>
+            <span className="mb-1 block text-xs text-zinc-600">お届け先 氏名 <span className="text-red-500">*</span></span>
             <input
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
+              placeholder="例：山田 花子"
               className="w-full rounded border border-zinc-300 px-2 py-1 text-sm"
             />
           </label>
@@ -177,15 +178,17 @@ export function CartClient({ initialItems }: { initialItems: CartItemRecord[] })
             <input
               value={recipientPhone}
               onChange={(e) => setRecipientPhone(e.target.value)}
+              placeholder="例：090-1234-5678"
               className="w-full rounded border border-zinc-300 px-2 py-1 text-sm"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs text-zinc-600">住所</span>
+            <span className="mb-1 block text-xs text-zinc-600">住所 <span className="text-red-500">*</span></span>
             <textarea
               value={shippingAddress}
               onChange={(e) => setShippingAddress(e.target.value)}
               rows={2}
+              placeholder="例：東京都千代田区〇〇1-1-1"
               className="w-full rounded border border-zinc-300 px-2 py-1 text-sm"
             />
           </label>
@@ -196,12 +199,12 @@ export function CartClient({ initialItems }: { initialItems: CartItemRecord[] })
               onChange={(e) => setCopyrightAgreed(e.target.checked)}
               className="mt-0.5"
             />
-            <span>著作権・肖像権の申告に同意（PRD §8.1）</span>
+            <span>著作権・肖像権の申告に同意します</span>
           </label>
           <button
             type="button"
             onClick={submitBatchOrder}
-            disabled={submittingBatch || !copyrightAgreed}
+            disabled={submittingBatch || !copyrightAgreed || !recipientName.trim() || !shippingAddress.trim()}
             className="inline-flex h-10 w-full items-center justify-center rounded-full bg-[#e85c22] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submittingBatch ? "送信中…" : "カート内の全行をまとめて注文"}

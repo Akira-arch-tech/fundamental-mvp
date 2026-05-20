@@ -164,7 +164,7 @@ export async function getProductBySlugMerged(slug: string): Promise<ProductDetai
 }
 
 export async function getProductByIdMerged(productId: string): Promise<ProductDetail | undefined> {
-  const p = products.find((x) => x.product_id === productId);
+  const p = resolveProductRef(productId);
   if (!p) return undefined;
   const template = await getPricingTemplate();
   const priced = calculatePricing(p.price_from, p.min_qty || 1, template);

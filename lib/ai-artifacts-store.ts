@@ -15,7 +15,7 @@ export interface AiArtifactRecord {
   created_at: string;
 }
 
-const FILE = path.join(process.cwd(), ".fdm-ai-artifacts.json");
+const FILE = process.env.VERCEL ? "/tmp/.fdm-ai-artifacts.json" : path.join(process.cwd(), ".fdm-ai-artifacts.json");
 
 type FileShape = { items: AiArtifactRecord[] };
 

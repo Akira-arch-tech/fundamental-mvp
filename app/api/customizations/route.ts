@@ -57,7 +57,12 @@ export async function POST(req: Request) {
     );
   } catch (e) {
     const message = e instanceof Error ? e.message : "customization save failed";
-    console.error("[POST /api/customizations] save failed", requestId, e);
+    console.error(
+      "[POST /api/customizations] save failed",
+      requestId,
+      "db_enabled:", !!process.env.DATABASE_URL,
+      e,
+    );
     return NextResponse.json(
       {
         code: "CUSTOMIZATION_SAVE_FAILED",

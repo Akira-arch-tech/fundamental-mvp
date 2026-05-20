@@ -34,7 +34,7 @@ export interface PricingExplain {
   matched_tier_min_qty: number | null;
 }
 
-const FILE = path.join(process.cwd(), ".fdm-pricing-template.json");
+const FILE = process.env.VERCEL ? "/tmp/.fdm-pricing-template.json" : path.join(process.cwd(), ".fdm-pricing-template.json");
 
 export const DEFAULT_PRICING_TEMPLATE: PricingTemplate = {
   markup_percent: 0,

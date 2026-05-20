@@ -16,7 +16,7 @@ import {
 import { getOrder } from "@/lib/orders-store";
 import type { ExceptionAuditLog, ExceptionRequestRecord, OperatorRole } from "@/lib/types";
 
-const STORE_PATH = path.join(process.cwd(), ".exception-requests-store.json");
+const STORE_PATH = process.env.VERCEL ? "/tmp/.exception-requests-store.json" : path.join(process.cwd(), ".exception-requests-store.json");
 
 function newExceptionRequestId(): string {
   const hex = () => Math.random().toString(16).slice(2, 10);

@@ -22,7 +22,7 @@ export async function getActiveStoreProfileSlug(): Promise<string> {
 export function storeSettingsPathForSlug(slug: string): string {
   const safe = slug === "default" ? "default" : slug;
   if (safe === "default") {
-    return path.join(process.cwd(), ".fdm-store-settings.json");
+    return process.env.VERCEL ? "/tmp/.fdm-store-settings.json" : path.join(process.cwd(), ".fdm-store-settings.json");
   }
   return path.join(process.cwd(), `.fdm-store-settings.${safe}.json`);
 }

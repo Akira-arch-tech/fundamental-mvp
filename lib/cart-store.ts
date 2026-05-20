@@ -9,7 +9,10 @@ import type {
   SpecOption,
 } from "@/lib/types";
 
-const STORE_PATH = path.join(process.cwd(), ".cart-store.json");
+// Vercel serverless: process.cwd() is read-only; use /tmp instead
+const STORE_PATH = process.env.VERCEL
+  ? "/tmp/.cart-store.json"
+  : path.join(process.cwd(), ".cart-store.json");
 
 interface AddCartInput {
   product_id: string;

@@ -10,6 +10,49 @@ import { AIGC_GENERATIONS_API_PATH, AIGC_MAX_CANDIDATE_COUNT, AIGC_MAX_REFERENCE
 import { writeFdmAigcLastToWindow } from "@/lib/shop-aigc-persist";
 import { storePath } from "@/lib/storefront-constants";
 import type { ProductDetail } from "@/lib/types";
+import { CheckoutDrawer } from "@/components/CheckoutDrawer";
+
+// Resize a base64 data URL to max `maxPx` on the longest side using an
+// off-screen canvas. Keeps aspect ratio; returns original if already small.
+function resizeDataUrlToMax(dataUrl: string, maxPx: number): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const { naturalWidth: w, naturalHeight: h } = img;
+      if (w <= maxPx && h <= maxPx) { resolve(dataUrl); return; }
+      const scale = maxPx / Math.max(w, h);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// Compress a File/Blob to ≤maxPx and ≤maxBytes using an off-screen canvas.
+// Keeps aspect ratio; skips resize if already within limits.
+function compressFileForUpload(file: File, maxPx = 1024, maxBytes = 2 * 1024 * 1024): Promise<Blob> {
+  return new Promise((resolve) => {
+    if (file.size <= maxBytes) { resolve(file); return; }
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { naturalWidth: w, naturalHeight: h } = img;
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => resolve(blob ?? file), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Product base layer — rendered at z=0, pointer-events-none, never exported
@@ -141,7 +184,7 @@ function ProductBaseLayer({
           fill="rgba(255,255,255,0.7)"
           fontFamily="sans-serif"
         >
-          {printArea === "front" ? "前面" : "背面"}
+          {printArea === "front" ? "フロント" : "バック"}
         </text>
       </svg>
     );
@@ -287,7 +330,20 @@ type TransformMode =
       startAngleDeg: number;
     };
 
-export function CustomizeEditor({ product }: { product: ProductDetail }) {
+export function CustomizeEditor({
+  product,
+  initQty = 1,
+  chatSize = "",
+  stripeEnabled = false,
+}: {
+  product: ProductDetail;
+  /** チャットフローから引き継いだ初期数量 */
+  initQty?: number;
+  /** チャットフローから引き継いだサイズ名（表示専用） */
+  chatSize?: string;
+  /** Stripe決済が有効かどうか（サーバー側で判定してpropsとして渡す） */
+  stripeEnabled?: boolean;
+}) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const fabricRef = useRef<FabricCanvasHandle | null>(null);
   const dragStartRef = useRef<DragStart | null>(null);
@@ -315,12 +371,13 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
   const [bgColor, setBgColor] = useState("#ffffff");
   const [snapGuides, setSnapGuides] = useState<{ x?: number; y?: number }>({});
   const [estimatedDpi, setEstimatedDpi] = useState(220);
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(initQty);
   const [loading, setLoading] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [error, setError] = useState("");
   const [cartMsg, setCartMsg] = useState("");
   const [saved, setSaved] = useState<SaveResult | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   // Unified upload — pending state before user chooses canvas or AI
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -418,13 +475,21 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setRmbgBusy(true);
     setRmbgMsg("背景を削除中...");
     try {
+      let imageUrl = selectedLayer.dataUrl;
+      if (imageUrl.startsWith("data:")) {
+        imageUrl = await resizeDataUrlToMax(imageUrl, 1024);
+      }
       const res = await fetch("/api/design-tools/rmbg", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: selectedLayer.dataUrl }),
+        body: JSON.stringify({ image_url: imageUrl }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`サーバーエラー ${res.status}: ${text.slice(0, 120)}`);
+      }
       const json = await res.json() as { image_url?: string; error?: string };
-      if (!res.ok || !json.image_url) throw new Error(json.error ?? "rmbg failed");
+      if (!json.image_url) throw new Error(json.error ?? "rmbg failed");
       const layerId = selectedLayer.id;
       updateEditor((prev) =>
         prev.map((layer) =>
@@ -446,13 +511,25 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setUpscaleBusy(true);
     setUpscaleMsg("AI で画質を改善中 (4×)...");
     try {
+      // If the layer is a local base64 data URL, resize it to ≤1024px before
+      // sending to the API. Vercel serverless has a 4.5 MB request body limit;
+      // large base64 payloads exceed it and return a plain-text 413 error.
+      let imageUrl = selectedLayer.dataUrl;
+      if (imageUrl.startsWith("data:")) {
+        imageUrl = await resizeDataUrlToMax(imageUrl, 1024);
+      }
+
       const res = await fetch("/api/design-tools/upscale", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: selectedLayer.dataUrl }),
+        body: JSON.stringify({ image_url: imageUrl }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`サーバーエラー ${res.status}: ${text.slice(0, 120)}`);
+      }
       const json = await res.json() as { image_url?: string; error?: string };
-      if (!res.ok || !json.image_url) throw new Error(json.error ?? "upscale failed");
+      if (!json.image_url) throw new Error(json.error ?? "upscale failed");
       const layerId = selectedLayer.id;
       updateEditor((prev) =>
         prev.map((layer) =>
@@ -678,6 +755,36 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     );
     setPendingFile(null);
     setPendingDataUrl("");
+  }
+
+  /** canvas に置きつつ AI 参照にも同時追加 */
+  function onPlaceOnCanvasAndRef() {
+    const file = pendingFile;
+    const dataUrl = pendingDataUrl;
+    if (!file || !dataUrl) return;
+    const id = `layer_img_${Date.now()}`;
+    const newLayer: ImageLayer = {
+      id, type: "image", name: file.name, dataUrl,
+      locked: false, x: 0, y: 0, scaleX: 1, scaleY: 1, rotate: 0,
+    };
+    updateEditor((prev) => [newLayer, ...prev]);
+    setSelectedLayerId(id);
+    setSelectedLayerIds([id]);
+    setPendingFile(null);
+    setPendingDataUrl("");
+    setAigcRefFiles((prev) => [...prev, file].slice(0, AIGC_MAX_REFERENCE_ASSET_COUNT));
+  }
+
+  /** キャンバス上の既存画像レイヤーを AIGC 参照に追加 */
+  function onAddLayerAsAigcRef(layer: ImageLayer) {
+    fetch(layer.dataUrl)
+      .then((r) => r.blob())
+      .then((blob) => {
+        const ext = blob.type.includes("png") ? "png" : "jpg";
+        const file = new File([blob], layer.name || `canvas-image.${ext}`, { type: blob.type || "image/jpeg" });
+        setAigcRefFiles((prev) => [...prev, file].slice(0, AIGC_MAX_REFERENCE_ASSET_COUNT));
+      })
+      .catch(() => {/* dataUrl fetch failed — skip silently */});
   }
 
   function onLayerPointerDown(e: React.PointerEvent<HTMLDivElement>, layer: CanvasLayer) {
@@ -1041,33 +1148,29 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
     setError("");
     setSaved(null);
     try {
-      // Flatten all visible layers into one print-ready PNG
-      let mergedPng = flattenedPreviewUrl;
-      if (!mergedPng) {
-        try {
-          mergedPng = await flattenCanvas();
-          setFlattenedPreviewUrl(mergedPng);
-        } catch {
-          // Non-fatal: save continues without merged PNG
-        }
-      }
+      // Compress user_images to ≤512px before saving to avoid Vercel 4.5 MB body limit.
+      // merged_design_png is intentionally omitted — the API does not use it and it can
+      // be several MB as a base64 string, which would cause a 413 on Vercel.
+      const compressedUserImages = await Promise.all(
+        layers
+          .filter((layer): layer is ImageLayer => layer.type === "image" && !layer.hidden)
+          .map(async (layer) => {
+            const raw = typeof layer.dataUrl === "string" ? layer.dataUrl : String(layer.dataUrl ?? "");
+            const compressed = raw.startsWith("data:") ? await resizeDataUrlToMax(raw, 512) : raw;
+            return { name: layer.name, data_url: compressed };
+          }),
+      );
 
       let bodyJson: string;
       try {
         bodyJson = JSON.stringify({
           product_id: product.product_id,
           template_id: product.design_template_id,
-          merged_design_png: mergedPng || null,
           text_layers: layers
             .filter((layer): layer is TextLayer => layer.type === "text")
             .map((layer) => ({ text: layer.text, color: layer.color, x: layer.x, y: layer.y })),
           color_layers: [{ role: "background", value: bgColor }],
-          user_images: layers
-            .filter((layer): layer is ImageLayer => layer.type === "image" && !layer.hidden)
-            .map((layer) => ({
-              name: layer.name,
-              data_url: typeof layer.dataUrl === "string" ? layer.dataUrl : String(layer.dataUrl ?? ""),
-            })),
+          user_images: compressedUserImages,
           transform_matrix: [1, 0, 0, 1, 0, 0],
           estimated_dpi: estimatedDpi,
         });
@@ -1082,13 +1185,18 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         headers: { "Content-Type": "application/json" },
         body: bodyJson,
       });
-      const json = (await res.json()) as SaveResult & {
-        code?: string;
-        message?: string;
-      };
-      if (!res.ok) {
-        throw new Error(json.message ?? "保存に失敗しました");
+      // Parse JSON safely — non-2xx responses from Vercel edge (e.g. 413) may not be JSON.
+      let json: (SaveResult & { code?: string; message?: string }) | null = null;
+      try {
+        json = (await res.json()) as SaveResult & { code?: string; message?: string };
+      } catch {
+        // Body was not JSON (e.g. Vercel 413 HTML page)
       }
+      if (!res.ok) {
+        const hint = res.status === 413 ? "デザインデータが大きすぎます。画像を減らして再試行してください。" : null;
+        throw new Error(hint ?? json?.message ?? `保存に失敗しました (HTTP ${res.status})`);
+      }
+      if (!json) throw new Error("サーバーからの応答が不正です。再試行してください。");
       setSaved(json);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
@@ -1179,10 +1287,16 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
 
       if (aigcRefFiles.length > 0) {
         const fd = new FormData();
-        for (const f of aigcRefFiles) fd.append("files", f);
+        for (const f of aigcRefFiles) {
+          const compressed = await compressFileForUpload(f);
+          fd.append("files", compressed, f.name);
+        }
         const up = await fetch(AIGC_REFERENCE_ASSETS_API_PATH, { method: "POST", body: fd });
+        if (!up.ok) {
+          const text = await up.text();
+          throw new Error(`参考画像のアップロードに失敗しました (${up.status}): ${text.slice(0, 120)}`);
+        }
         const upJson = (await up.json()) as { assets?: { asset_id: string }[]; message?: string };
-        if (!up.ok) throw new Error(upJson.message ?? "参考画像のアップロードに失敗しました");
         reference_asset_ids = (upJson.assets ?? []).map((a) => a.asset_id).filter(Boolean);
         if (reference_asset_ids.length === 0) throw new Error("asset_id が返りませんでした");
       }
@@ -1228,6 +1342,12 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = "生成リクエストに失敗しました";
+        try { msg = (JSON.parse(text) as { message?: string }).message ?? msg; } catch { msg = text.slice(0, 120); }
+        throw new Error(msg);
+      }
       const json = (await res.json()) as {
         job_id?: string;
         message?: string;
@@ -1235,7 +1355,6 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         status?: string;
         warnings?: string[];
       };
-      if (!res.ok) throw new Error(json.message ?? json.code ?? "生成リクエストに失敗しました");
       const jobId = json.job_id;
       if (!jobId) throw new Error("job_id がありません");
       setAigcJobId(jobId);
@@ -1383,6 +1502,13 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
             setSelectedLayerId(id);
             setSelectedLayerIds(id ? [id] : []);
           }}
+          onLayerScaleInit={(id, sx, sy) => {
+            // Reconcile layer state with Fabric's ratio-adjusted initial scale
+            // (bypasses history to avoid polluting undo stack)
+            setLayers((prev) =>
+              prev.map((l) => (l.id === id ? { ...l, scaleX: sx, scaleY: sy } : l)),
+            );
+          }}
           canvasSize={520}
           globalFontFamily={fontFamily !== "inherit" ? fontFamily : "sans-serif"}
           renderUnderlay={
@@ -1461,21 +1587,108 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                     : "border border-zinc-300 text-zinc-600 hover:border-zinc-500"
                 }`}
               >
-                {area === "front" ? "前面" : "背面"}
+                {area === "front" ? "フロント" : "バック"}
               </button>
             ))}
           </div>
         </div>
 
+        {/* ━━━ STEP 1: 素材アップロード ━━━━━━━━━━━━━━━━━━━━━━ */}
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-500">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-400 text-[9px] font-bold text-white">1</span>
+            素材を準備する
+          </p>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">画像をアップロード</span>
+
+          {!pendingFile ? (
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-zinc-200 bg-white px-4 py-3 transition-colors hover:border-zinc-400 hover:bg-zinc-100">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0 text-zinc-400">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-zinc-700">クリックして画像を選択</p>
+                <p className="text-xs text-zinc-400">PNG / JPG / WebP</p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          ) : (
+            <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pendingDataUrl}
+                  alt="preview"
+                  className="h-14 w-14 shrink-0 rounded-lg border border-zinc-100 object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-zinc-700">{pendingFile.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">どちらで使用しますか？</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPendingFile(null); setPendingDataUrl(""); }}
+                  className="shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+                  aria-label="キャンセル"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-3 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={onPlaceOnCanvasAndRef}
+                  className="w-full rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
+                >
+                  ✦ canvasに置く ＋ ②AIの参照にも追加
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={onPlaceOnCanvas}
+                    className="flex-1 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    canvasにのみ置く
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onUseAsAiRef}
+                    className="flex-1 rounded-full border border-violet-300 bg-white px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50"
+                  >
+                    ②AIの参照のみ
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ━━━ STEP 2: AIデザイン生成（①と並行・独立して使用可）━━ */}
         <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm text-zinc-800">
-          <h2 className="text-sm font-bold text-violet-900">✨ AI 画像生成（fal.ai）</h2>
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-500">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold text-white">2</span>
+            AIでデザインを生成する
+          </p>
+          <p className="mb-3 text-[11px] text-zinc-400">
+            ①の画像アップロードとは独立して使用できます。プロンプトだけで生成（T2I）も、①でアップロードした画像を参照に使う（I2I / Multi-ref）も、どちらも選択可能です。
+          </p>
+          <h2 className="mb-1 text-sm font-bold text-violet-900">✨ AI 画像生成（fal.ai）</h2>
 
           {/* Reference image status — set via unified upload above */}
           {aigcRefFiles.length > 0 ? (
             <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-100 px-3 py-2">
               <span className="text-xs text-violet-800">
                 📎 参考画像 {aigcRefFiles.length} 枚セット済み
-                {aigcRefFiles.length >= 2 ? "（複数画像参照モード）" : "（画像参照モード）"}
+                {aigcRefFiles.length >= 2 ? "（複数画像参照モード / multi-ref）" : "（画像参照モード / img2img）"}
               </span>
               <button
                 type="button"
@@ -1486,9 +1699,36 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
               </button>
             </div>
           ) : (
-            <p className="mt-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
-              参考画像なし（プロンプトのみで生成）。上の「AIで新しいデザインを生成する」から参考画像をセットできます。
-            </p>
+            <div className="mt-2 space-y-2">
+              <p className="rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
+                参考画像なし ＝ テキストのみで生成（T2I）
+              </p>
+              {/* キャンバス上の画像レイヤーをワンクリックで参照に追加 */}
+              {layers.some((l) => l.type === "image") && (
+                <div className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2">
+                  <p className="mb-1.5 text-[11px] font-medium text-violet-700">
+                    キャンバス上の画像を参照に追加（I2I / Multi-ref）
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {layers
+                      .filter((l): l is ImageLayer => l.type === "image")
+                      .map((l) => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => onAddLayerAsAigcRef(l)}
+                          className="flex items-center gap-1.5 rounded-full border border-violet-300 bg-white px-2.5 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-100"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={l.dataUrl} alt="" className="h-4 w-4 rounded object-cover" />
+                          {l.name.length > 16 ? l.name.slice(0, 14) + "…" : l.name}
+                          を参照に追加
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <label className="mt-2 block">
             <span className="mb-1 block text-xs font-medium text-zinc-700">
@@ -1584,7 +1824,8 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
                         aigcPickIndex === c.index ? "border-violet-600 ring-2 ring-violet-300" : "border-zinc-200"
                       }`}
                     >
-                      <Image src={c.url} alt={`候補 ${c.index}`} fill className="object-cover" sizes="80px" />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={c.url} alt={`候補 ${c.index}`} className="h-full w-full object-cover" />
                     </button>
                     <button
                       type="button"
@@ -1716,98 +1957,7 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           </label>
         </div>
 
-        <div>
-          <span className="mb-2 block text-sm font-medium text-zinc-700">画像をアップロード</span>
-
-          {!pendingFile ? (
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 transition-colors hover:border-zinc-400 hover:bg-zinc-100">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0 text-zinc-400">
-                <rect x="3" y="3" width="18" height="18" rx="3" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-zinc-700">クリックして画像を選択</p>
-                <p className="text-xs text-zinc-400">PNG / JPG / WebP</p>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
-              />
-            </label>
-          ) : (
-            <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pendingDataUrl}
-                  alt="preview"
-                  className="h-14 w-14 shrink-0 rounded-lg border border-zinc-100 object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-zinc-700">{pendingFile.name}</p>
-                  <p className="mt-0.5 text-xs text-zinc-400">どちらで使用しますか？</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setPendingFile(null); setPendingDataUrl(""); }}
-                  className="shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
-                  aria-label="キャンセル"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={onPlaceOnCanvas}
-                  className="flex-1 rounded-full bg-zinc-800 px-3 py-2 text-xs font-bold text-white hover:bg-zinc-700"
-                >
-                  このままcanvasに置く
-                </button>
-                <button
-                  type="button"
-                  onClick={onUseAsAiRef}
-                  className="flex-1 rounded-full bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
-                >
-                  AIで新しいデザインを生成する
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {selectedLayer?.type === "image" && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-            <p className="mb-2 text-xs font-bold text-emerald-800">✨ AI 画像ツール</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void onRmbg()}
-                disabled={rmbgBusy}
-                className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {rmbgBusy ? "処理中..." : "背景を削除"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void onUpscale()}
-                disabled={upscaleBusy}
-                className="rounded-full border border-emerald-600 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-              >
-                {upscaleBusy ? "処理中..." : "AI 超解像 (4×)"}
-              </button>
-            </div>
-            {rmbgMsg && <p className="mt-1.5 text-xs text-emerald-700">{rmbgMsg}</p>}
-            {upscaleMsg && <p className="mt-1.5 text-xs text-emerald-700">{upscaleMsg}</p>}
-          </div>
-        )}
-
-        {/* AI Sticker generation panel */}
+        {/* ━━━ AIスタンプ生成（ステップ2内のサブ機能）━━━━━━━━ */}
         <div className="rounded-xl border border-pink-200 bg-pink-50/60 p-4">
           <h2 className="mb-2 text-sm font-bold text-pink-900">🎀 AIスタンプ生成</h2>
           <p className="mb-2 text-xs text-zinc-500">キーワードを入力すると、AIが透明背景の貼り付け用スタンプを生成します</p>
@@ -1984,6 +2134,49 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           </div>
         </div>
 
+        {/* ━━━ STEP 3: 画像を仕上げる（AIツール）━━━━━━━━━━━ */}
+        <div className={`rounded-xl border p-4 transition-all ${
+          selectedLayer?.type === "image"
+            ? "border-emerald-200 bg-emerald-50/60"
+            : "border-zinc-200 bg-zinc-50/60 opacity-60"
+        }`}>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-600">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">3</span>
+            画像を仕上げる
+          </p>
+          {selectedLayer?.type === "image" ? (
+            <>
+              <p className="mb-3 text-[11px] text-zinc-500">
+                画像レイヤーを選択中。背景削除・超解像はキャンバスに置いた後の最終仕上げです。操作はundo（元に戻す）で取り消せます。
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void onRmbg()}
+                  disabled={rmbgBusy}
+                  className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {rmbgBusy ? "処理中..." : "背景を削除"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onUpscale()}
+                  disabled={upscaleBusy}
+                  className="rounded-full border border-emerald-600 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                >
+                  {upscaleBusy ? "処理中..." : "AI 超解像 (4×)"}
+                </button>
+              </div>
+              {rmbgMsg && <p className="mt-1.5 text-xs text-emerald-700">{rmbgMsg}</p>}
+              {upscaleMsg && <p className="mt-1.5 text-xs text-emerald-700">{upscaleMsg}</p>}
+            </>
+          ) : (
+            <p className="text-xs text-zinc-400">
+              画像レイヤーを選択すると背景削除・AI超解像が使用できます
+            </p>
+          )}
+        </div>
+
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-zinc-700">
             推定DPI（印刷の解像度目安）
@@ -1999,6 +2192,11 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
           />
           <span className="text-xs text-zinc-500">{estimatedDpi} DPI</span>
         </label>
+        {chatSize && (
+          <div className="rounded-lg bg-[#F0FDF4] border border-[#06C755]/30 px-3 py-2 text-xs text-zinc-700">
+            💬 チャットで選択：<strong className="text-[#06C755]">{chatSize}</strong>
+          </div>
+        )}
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-zinc-700">点数</span>
           <input
@@ -2066,60 +2264,67 @@ export function CustomizeEditor({ product }: { product: ProductDetail }) {
         ) : null}
 
         {saved ? (
-          <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
-            <p>
-              customization_id:{" "}
-              <span className="font-mono">{saved.customization_id}</span>
+          <div className="space-y-2 rounded-xl border border-green-200 bg-green-50 p-3">
+            {/* DPI ステータス */}
+            <p className={`text-xs ${dpiTone}`}>
+              🖨 DPI: {saved.dpi_check_result.estimated_dpi} / 推奨 {saved.dpi_check_result.min_recommended_dpi}
+              {" — "}{saved.dpi_check_result.message}
             </p>
-            <p>
-              requestId: <span className="font-mono">{saved.requestId}</span>
-            </p>
-            <p className={dpiTone}>
-              DPI: {saved.dpi_check_result.estimated_dpi} / 推奨{" "}
-              {saved.dpi_check_result.min_recommended_dpi}
-            </p>
-            <p>{saved.dpi_check_result.message}</p>
-            {saved.warnings.length > 0 ? (
-              <ul className="list-disc pl-5">
-                {saved.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
+            {saved.warnings.length > 0 && (
+              <ul className="list-disc pl-4 text-xs text-amber-700">
+                {saved.warnings.map((w) => <li key={w}>{w}</li>)}
               </ul>
-            ) : null}
-            <a
-              href={saved.preview_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-block text-[#e85c22] underline"
-            >
-              プレビュー情報
-            </a>
-            <br />
-            {dpiBlocksProduction ? (
-              <span className="inline-block text-xs text-red-600">注文へ進む（DPI 不足のため停止）</span>
-            ) : (
-              <Link
-                href={`${storePath("/checkout")}?customization_id=${saved.customization_id}`}
-                className="inline-block text-[#e85c22] underline"
-              >
-                このデザインで注文へ進む →
-              </Link>
             )}
-            <br />
-            <button
-              type="button"
-              onClick={onAddToCart}
-              disabled={addingToCart || dpiBlocksProduction}
-              className="mt-1 inline-flex h-8 items-center justify-center rounded-full border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {addingToCart ? "追加中…" : "カートに入れる"}
-            </button>
-            <Link href={storePath("/cart")} className="ml-2 text-[#e85c22] underline">
-              カートを開く
-            </Link>
+            {/* 注文ボタン（ドロワーを開く） */}
+            {dpiBlocksProduction ? (
+              <p className="text-xs text-red-600">⚠ DPI 不足のため注文できません。画像解像度をご確認ください。</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCheckoutOpen(true)}
+                className="inline-flex h-10 w-full items-center justify-center rounded-full bg-[#e85c22] text-sm font-bold text-white hover:bg-[#d14f1b]"
+              >
+                このデザインで注文へ →
+              </button>
+            )}
+            {saved && !dpiBlocksProduction ? (
+              <Link
+                href={storePath(
+                  `/checkout?customization_id=${encodeURIComponent(saved.customization_id)}`,
+                )}
+                className="block text-center text-xs text-[#e85c22] underline hover:text-[#d14f1b]"
+              >
+                別ページで決済する
+              </Link>
+            ) : null}
+            {/* カートに入れる（サブアクション） */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onAddToCart}
+                disabled={addingToCart || dpiBlocksProduction}
+                className="inline-flex h-8 items-center justify-center rounded-full border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {addingToCart ? "追加中…" : "カートに入れる"}
+              </button>
+              <Link href={storePath("/cart")} className="text-xs text-[#e85c22] underline">
+                カートを開く
+              </Link>
+            </div>
           </div>
         ) : null}
         {cartMsg ? <p className="text-xs text-zinc-500">{cartMsg}</p> : null}
+
+        {/* 結帳 Drawer */}
+        {checkoutOpen && saved && (
+          <CheckoutDrawer
+            saved={saved}
+            product={product}
+            qty={qty}
+            stripeEnabled={stripeEnabled}
+            onClose={() => setCheckoutOpen(false)}
+          />
+        )}
 
         <Link
           href={storePath(`/products/${product.slug}`)}

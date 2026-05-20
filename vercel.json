@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/aigc-worker",
-      "schedule": "0 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }

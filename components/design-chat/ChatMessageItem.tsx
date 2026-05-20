@@ -5,15 +5,20 @@ import TypingIndicator from "./TypingIndicator";
 import QuickReplies from "./QuickReplies";
 import ProductMockupCard from "./ProductMockupCard";
 import OrderConfirmCard from "./OrderConfirmCard";
+import CopywritingCard from "./CopywritingCard";
+import CommunityPackCard from "./CommunityPackCard";
+import CheckoutLinkCard from "./CheckoutLinkCard";
+import VirtualGiftHintCard from "./VirtualGiftHintCard";
 
 interface Props {
   message: ChatMessage;
   onQuickReply: (value: string) => void;
   isLastAgent?: boolean;
   disabled?: boolean;
+  isDemo?: boolean;
 }
 
-export default function ChatMessageItem({ message, onQuickReply, isLastAgent, disabled }: Props) {
+export default function ChatMessageItem({ message, onQuickReply, isLastAgent, disabled, isDemo }: Props) {
   const isUser = message.role === "user";
 
   if (isUser) {
@@ -84,6 +89,17 @@ export default function ChatMessageItem({ message, onQuickReply, isLastAgent, di
 
         {/* Order confirmation */}
         {message.orderData && <OrderConfirmCard data={message.orderData} />}
+
+        {/* Crowdfunding copywriting */}
+        {message.copywritingContent && (
+          <CopywritingCard content={message.copywritingContent} isDemo={isDemo} />
+        )}
+
+        {message.communityPack && <CommunityPackCard data={message.communityPack} />}
+
+        {message.checkoutLink && <CheckoutLinkCard data={message.checkoutLink} />}
+
+        {message.virtualGiftHint && <VirtualGiftHintCard data={message.virtualGiftHint} />}
 
         {/* Timestamp */}
         {!message.isTyping && (

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { WorkorderRecord } from "@/lib/types";
 
-const STORE_PATH = path.join(process.cwd(), ".workorders-store.json");
+const STORE_PATH = process.env.VERCEL ? "/tmp/.workorders-store.json" : path.join(process.cwd(), ".workorders-store.json");
 
 function newWorkorderId(): string {
   const hex = () => Math.random().toString(16).slice(2, 10);

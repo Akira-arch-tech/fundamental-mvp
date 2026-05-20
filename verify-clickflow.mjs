@@ -280,8 +280,8 @@ async function runChecks() {
   if (!checkoutHtml.includes("ご注文手続き")) {
     throw new Error("checkout page missing ご注文手続き (valid customization path)");
   }
-  if (!checkoutHtml.includes("デザインID（控え）")) {
-    throw new Error("checkout page missing design id block");
+  if (!checkoutHtml.includes(`/api/customizations/${customizationId}/thumbnail`)) {
+    throw new Error("checkout page missing customization preview thumbnail");
   }
 
   const checkoutCamelRes = await fetch(
@@ -304,6 +304,25 @@ async function runChecks() {
   if (previewMetaJson.customization_id !== customizationId) {
     throw new Error("preview JSON customization_id mismatch");
   }
+
+  const thumbRes = await fetch(`${base}/api/customizations/${customizationId}/thumbnail`);
+  if (!thumbRes.ok) {
+    throw new Error(`GET customization thumbnail failed: ${thumbRes.status}`);
+  }
+  const thumbType = thumbRes.headers.get("content-type") ?? "";
+  if (!thumbType.startsWith("image/")) {
+    throw new Error(`thumbnail content-type unexpected: ${thumbType}`);
+  }
+
+  const customizeSlugRes = await fetch(`${base}${store}/customize/free-acrylic-stand-clear`);
+  if (!customizeSlugRes.ok) {
+    throw new Error(`customize by slug returned ${customizeSlugRes.status}`);
+  }
+  const customizeSlugHtml = await customizeSlugRes.text();
+  if (!customizeSlugHtml.includes("デザインエディタ")) {
+    throw new Error("customize page by product slug missing editor");
+  }
+  console.log("PASS customize slug + customization thumbnail");
 
   const orderRes = await fetch(`${base}/api/orders`, {
     method: "POST",

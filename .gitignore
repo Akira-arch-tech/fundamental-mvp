@@ -59,3 +59,4 @@ next-env.d.ts
 .fdm-ai-artifacts.json
 .fdm-product-ai-cover.json
 .stripe-checkout-map.json
+.cart-store.json

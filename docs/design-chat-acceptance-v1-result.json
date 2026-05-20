@@ -1,0 +1,345 @@
+{
+  "passed": 52,
+  "failed": 2,
+  "total": 54,
+  "failures": [
+    {
+      "section": "节点3",
+      "item": "LINE OpenChatコミュニティ",
+      "pass": false,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "复制按钮恢复",
+      "pass": false,
+      "note": ""
+    }
+  ],
+  "results": [
+    {
+      "section": "一、环境",
+      "item": "访问design-chat",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "一、环境",
+      "item": ".env.local存在",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "一、环境",
+      "item": "tsc --noEmit",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点1",
+      "item": "B2Bパートナーモードへようこそ",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点1",
+      "item": "💡 例：",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点1",
+      "item": "无快速回复",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点2",
+      "item": "ありがとうございます",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点2",
+      "item": "社群快速回复×4",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点3",
+      "item": "LINE OpenChatコミュニティ",
+      "pass": false,
+      "note": ""
+    },
+    {
+      "section": "节点3",
+      "item": "クラウドファンディングで展開",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点3",
+      "item": "商品×5",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点4",
+      "item": "アクリルスタンド确认",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点4",
+      "item": "テーマ・色・雰囲気",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点4",
+      "item": "引用主播风格[关键]",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点5",
+      "item": "生成中文案",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点5",
+      "item": "picsum图片",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点5",
+      "item": "生成できました",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点5",
+      "item": "确认/调整快速回复×2",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点6",
+      "item": "mockup事件",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点6",
+      "item": "众筹文案询问",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点6",
+      "item": "B2B不跳尺码[关键]",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "生成提示",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "文案结构[关键]",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "サンプル/完了回复",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点8",
+      "item": "Skip直接尺码",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点8",
+      "item": "尺码带价格",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点9",
+      "item": "数量提示",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点9",
+      "item": "合计计算[关键]",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点10",
+      "item": "order事件",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点10",
+      "item": "FUN订单号[关键]",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "C2C",
+      "item": "個人注文モード",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "C2C",
+      "item": "商品×5",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "C2C",
+      "item": "跳过主播/社群",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "C2C",
+      "item": "mockup后无众筹[关键]",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "异常",
+      "item": "乱码fallback",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "异常",
+      "item": "调整设计返回",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点0",
+      "item": "Agent头像F",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点0",
+      "item": "欢迎语",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点0",
+      "item": "B2B按钮",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点0",
+      "item": "个人按钮",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点0",
+      "item": "日期chip",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点1",
+      "item": "用户B2B气泡",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点1",
+      "item": "B2Bパートナーモード",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点5",
+      "item": "图片底部标签",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点6",
+      "item": "ProductMockupCard",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "CopywritingCard标题",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "Kibidango badge",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "复制成功状态",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点7",
+      "item": "复制按钮恢复",
+      "pass": false,
+      "note": ""
+    },
+    {
+      "section": "节点10",
+      "item": "UI显示FUN订单号",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "节点10",
+      "item": "感谢语",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "UI",
+      "item": "LINE绿色header",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "异常",
+      "item": "loading时按钮disabled",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "section": "异常",
+      "item": "刷新回welcome",
+      "pass": true,
+      "note": ""
+    }
+  ]
+}

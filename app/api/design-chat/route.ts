@@ -6,8 +6,16 @@ export const runtime = "nodejs";
 export const maxDuration = 90;
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as { message: string; state: AgentState };
-  const { message, state } = body;
+  const body = (await req.json()) as {
+    message: string;
+    state: AgentState;
+    demo?: boolean;
+  };
+  const { message, demo } = body;
+  const state: AgentState = {
+    ...body.state,
+    demoMode: body.state.demoMode === true || demo === true,
+  };
 
   const encoder = new TextEncoder();
 

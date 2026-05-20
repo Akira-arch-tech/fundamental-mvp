@@ -1,0 +1,129 @@
+{
+  "apiResults": [
+    {
+      "id": "N2",
+      "ok": true,
+      "step": "b2b_streamer",
+      "eventTypes": [
+        "state",
+        "text",
+        "done"
+      ]
+    },
+    {
+      "id": "N3",
+      "ok": true,
+      "step": "b2b_community",
+      "eventTypes": [
+        "state",
+        "text",
+        "quick_replies",
+        "done"
+      ]
+    },
+    {
+      "id": "N4",
+      "ok": true,
+      "step": "product_select",
+      "eventTypes": [
+        "state",
+        "text",
+        "quick_replies",
+        "done"
+      ]
+    },
+    {
+      "id": "N5",
+      "ok": true,
+      "step": "design_describe",
+      "eventTypes": [
+        "state",
+        "text",
+        "done"
+      ]
+    },
+    {
+      "id": "N6",
+      "ok": true,
+      "step": "design_review",
+      "eventTypes": [
+        "state",
+        "text",
+        "generating",
+        "image",
+        "quick_replies",
+        "done"
+      ]
+    },
+    {
+      "id": "N7",
+      "ok": true,
+      "step": "crowdfunding_copy",
+      "eventTypes": [
+        "state",
+        "text",
+        "mockup",
+        "quick_replies",
+        "done"
+      ]
+    },
+    {
+      "id": "N8",
+      "ok": true,
+      "step": "crowdfunding_copy",
+      "eventTypes": [
+        "text",
+        "generating",
+        "state",
+        "copywriting",
+        "quick_replies",
+        "done"
+      ]
+    },
+    {
+      "id": "N9",
+      "ok": true,
+      "step": "size_selected",
+      "eventTypes": [
+        "state",
+        "text",
+        "quick_replies",
+        "done"
+      ]
+    },
+    {
+      "id": "N10",
+      "ok": true,
+      "step": "size_selected",
+      "eventTypes": [
+        "state",
+        "text",
+        "done"
+      ]
+    },
+    {
+      "id": "N11",
+      "ok": true,
+      "step": "order_confirm",
+      "eventTypes": [
+        "state",
+        "text",
+        "quick_replies",
+        "done"
+      ]
+    },
+    {
+      "id": "N12",
+      "ok": true,
+      "step": "order_complete",
+      "eventTypes": [
+        "state",
+        "order",
+        "text",
+        "done"
+      ]
+    }
+  ],
+  "screenshots": "/Users/airick/Desktop/工作资料/外接需求AI+/AI+产运双修软硬一体/国民级APP-原型/FUNDAMENTAL/fundamental-originalprint-clone/docs/acceptance-screenshots",
+  "base": "http://localhost:3000"
+}

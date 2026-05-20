@@ -1,22 +1,62 @@
-# fundamental-custom-store
+# FUNDAMENTAL — Next.js 应用（双仓库共用同一代码基线）
 
-FUNDAMENTAL 的 **定制商品平台 workspace**（W1–W13 / **M3**：含 **对接队列（ERP/CRM）**、**Webhook 验签**、**重试与死信**、**告警与审计 CSV**；`npm run verify:clickflow` + `npm run verify:mvp`）。
+本目录是 **可运行的 Web 应用**（Next.js 16）。与上层 `FUNDAMENTAL/` 文档仓（PRD 等）分离；推 Git 时只推本目录内容。
 
-**源码（公开）**：[github.com/Akira-arch-tech/fundamental-mvp](https://github.com/Akira-arch-tech/fundamental-mvp) · 安全说明见根目录 `SECURITY.md`。
+## 双仓库 / 双 Vercel（分开管理）
 
-## 文档
+| | **fundamental-mvp** | **fundamental-agent** |
+|---|---------------------|------------------------|
+| **Git** | [github.com/Akira-arch-tech/fundamental-mvp](https://github.com/Akira-arch-tech/fundamental-mvp) | [github.com/Akira-arch-tech/fundamental-agent](https://github.com/Akira-arch-tech/fundamental-agent) |
+| **用途** | 完整定制平台 + 主站 | FUNDAMENTAL AI Agent 独立开发与对外 Demo |
+| **Vercel 项目** | `fundamental-mvp` | `fundamental-agent` |
+| **线上** | https://www.fundamental-goods.com | https://fundamental-agent-eta.vercel.app |
+| **Agent 演示** | 同代码路径 `/design-chat` | https://fundamental-agent-eta.vercel.app/design-chat?demo=1 |
 
-- 需求与字段：`../PRD-FUNDAMENTAL-v0.1.md`
-- 执行拆解：`../FUNDAMENTAL-x-CustoMeow-集成实施清单-v0.1.md`
-- 环境与密钥说明：根目录 `.env.example`；本地数据库：`docker-compose.yml`
-- MVP 产品需求（v0.2）：`docs/PRD-v0.2-MVP.md`
-- CRM/ERP 技术契约（MVP）：`docs/TECH-CONTRACT-CRM-ERP.md`
-- 产品验收手册（v1）：`docs/ACCEPTANCE-RUNBOOK-v1.md`
-- 加购与编辑器方案：`docs/CUSTOM-EDITOR-AND-CART-PLAN-v1.md`
-- 站点 URL 与全站 Tab 导航：`docs/SITE-URLS-AND-NAV-v1.md`
-- 买家店 AIGC 能力与页面差距说明：`docs/AIGC-STOREFRONT-GAP-v1.md`
-- AIGC 买家端 API（MVP 骨架）：`docs/AIGC-API-MVP-SKELETON-v2.md`（v1 见同目录 `*-v1.md` 历史对照）
-- 真模型烟测（需自备密钥）：`npm run smoke:aigc:fal` / `npm run smoke:aigc:ttapi`
+**规则**：推 `fundamental-mvp` 只更新主站；推 `fundamental-agent` 只更新 Agent 站。两仓根目录均为本应用（含 `package.json`、`app/`、`vercel.json`）。
+
+**勿用** `https://fundamental-agent.vercel.app`（全局短域名已被他人占用）。
+
+### 本地 Git 远程（推荐）
+
+```bash
+git remote add agent https://github.com/Akira-arch-tech/fundamental-agent.git   # 仅需一次
+git push origin <branch>      # → 更新 fundamental-mvp / 主站
+git push agent <branch>:main  # → 更新 fundamental-agent / Agent 站（生产分支多为 main）
+```
+
+### Vercel CLI 关联（按目标项目二选一）
+
+```bash
+# 主站
+npx vercel link -y -p fundamental-mvp --scope rickyisfighting-5716s-projects
+npx vercel deploy --prod --yes
+
+# Agent 站
+npx vercel link -y -p fundamental-agent --scope rickyisfighting-5716s-projects
+npx vercel deploy --prod --yes
+```
+
+`.vercel/` 不入 Git；每人本机 `link` 到当前要部署的项目即可。
+
+若 Agent 站 Git 部署后全站 404、构建仅 `0ms`：Vercel 项目 Framework 须为 **Next.js**（勿选 Other）；本仓 `vercel.json` 已声明 `"framework": "nextjs"`。
+
+---
+
+## 产品能力摘要
+
+FUNDAMENTAL 定制商品平台（W1–W13 / M3：对接队列、Webhook、重试与审计）。验收：`npm run verify:clickflow` + `npm run verify:mvp`。
+
+- 根路径 `/`：日文营销落地页
+- 买家店 demo：`/shop`（收藏、商品、定制、结账、订单履约）
+- **AI Agent**：`/design-chat`（`?demo=1` 为 3 分钟自动演示）
+- 后台：`/b/login` 起（订单、异常、对接、AIGC 工作台等）
+
+## 文档（在上级 FUNDAMENTAL 目录）
+
+- 总 PRD：`../PRD-FUNDAMENTAL-v0.1.md`
+- Agent PRD：`docs/POCOCHA-DESIGN-AGENT-PRD-v0.1.md`
+- 站点 URL 表：`docs/SITE-URLS-AND-NAV-v1.md`
+- 环境变量：`.env.example`
 
 ## 开发
 
@@ -25,56 +65,14 @@ npm install
 npm run dev
 ```
 
-> `dev` 使用默认 **Webpack**（未启用 `--turbopack`），避免与 `next/font/google` 组合在部分环境出现的编译错误。
+> `dev` 默认 Webpack（非 Turbopack），避免部分环境下 `next/font` 编译问题。
 
-根路径 `/` 为日文营销落地页；**买家店 demo** 统一挂在 **`/shop`**（例如 `/shop` → `/shop/favorite`、`/shop/products/...`、`/shop/checkout`）。
+## 本地 Postgres（可选）
 
-定制页 v1：`/shop/customize/[productId]` 支持上传图片、文本配色、预览、DPI 提示和 `POST /api/customizations` 保存；并可跳转 `/shop/checkout` 完成下单（`POST /api/orders`），最终进入 `/shop/orders/[id]` 查看履约时间线、工单/物流节点，以及客服入口与异常流程（改图/补发/退款）。
-
-**W10**：顶栏「后台登录」进入 `/b/login`，会话写入 Cookie；订单页异常审核按钮与 `PATCH .../exceptions/{id}` 均以服务端会话角色为准，不再手工选角色。
-
-**W11**：配置 `DATABASE_URL` 后订单与异常落 PostgreSQL；登录为邮箱密码 + `sessions` 表；`/b/orders`、`/b/exceptions` 为后台工作台。本地库见本目录 **`docker-compose.yml`**；根目录 `.env.example` 为环境变量说明。
-
-**W12–W13**：`/b/integrations` 查看对接任务与告警；`POST /api/integrations/erp/webhook`（`ERP_WEBHOOK_SECRET`）；`GET /api/backoffice/audit-export`（admin）。验收：`npm run verify:mvp`。
-
-## 本地 Postgres（Pillar 1 / 生产形态验库）
-
-1. **`docker compose up -d`**（本目录 [docker-compose.yml](docker-compose.yml)，端口 **5433**）。
-2. **`export DATABASE_URL=postgresql://fdm:fdm@127.0.0.1:5433/fdm`**（Neon/RDS 则换成你的连接串，勿提交 Git）。
-3. **`npm run db:push`** 首次建表；若已有库仅缺定制表，可用 **`drizzle/add_customizations.sql`**。
-4. **`npm run db:seed`**（[scripts/seed-users.ts](scripts/seed-users.ts)；默认密码 **`FundamentalVerify#2026`**，可用 **`VERIFY_SEED_PASSWORD`** 覆盖）。
-5. **`npm run verify:with-db`**（需第 2 步同一 shell 已导出 `DATABASE_URL`）。
-6. 浏览器：`npm run dev` → 定制保存 → 带 `customization_id` 的结账 → demo 下单；SQL：`SELECT customization_id, product_id, status, created_at FROM customizations ORDER BY created_at DESC LIMIT 5`。
-
-## Vercel：只关联 fundamental-mvp
-
-线上生产与自定义域名（如 `www.fundamental-goods.com`）挂在 Vercel 项目 **`fundamental-mvp`**，不要用 CLI 在本目录「顺手」创建新项目（例如曾误建的 `fundamental-originalprint-clone`，应在 Dashboard 删除以免混淆）。
-
-- **项目控制台**：登录 [vercel.com](https://vercel.com) → 选择你的团队 → 打开项目 **`fundamental-mvp`**（控制台 URL 形如 `https://vercel.com/<你的团队_slug>/fundamental-mvp`，以账号为准）。
-- **首次在本机关联 / 换电脑后**：在仓库根目录执行（需已 `vercel login`）：
-
-```bash
-rm -rf .vercel   # 若曾链到其他项目，先清掉再 link
-npx vercel link   # 按提示选择团队与项目 fundamental-mvp；需非交互可加 -y -p fundamental-mvp --scope <你的团队_slug>
-```
-
-- **手动推生产构建**：
-
-```bash
-npx vercel deploy --prod --yes
-```
-
-- **说明**：`.vercel/` 已在 `.gitignore` 中，每人本地各自 `link` 即可；与 GitHub `main` 的自动部署也应指向 **同一项目 fundamental-mvp**（在 Vercel → Project → Settings → Git 中确认）。
-- **当前线上默认域（可点）**：见 `docs/SITE-URLS-AND-NAV-v1.md` 中「当前 Vercel 可访问 origin」一节（以 Dashboard → Domains 为准，分配可能随时间变化）。
+1. `docker compose up -d`（端口 **5433**）
+2. `export DATABASE_URL=postgresql://fdm:fdm@127.0.0.1:5433/fdm`
+3. `npm run db:push` → `npm run db:seed` → `npm run verify:with-db`
 
 ## 技术栈
 
-- Next.js 16（App Router）
-- TypeScript + Tailwind CSS
-- PostgreSQL + Drizzle ORM（可选，`DATABASE_URL`）
-- 商品图为远程占位（picsum.photos），见 `next.config.ts` 中 `images.remotePatterns`
-
-## 下一步（生产化）
-
-- 将工单 / 物流 / 客服与对接任务一并纳入 PostgreSQL；对接真实 CRM/ERP 沙箱
-- 多租户、可观测平台（OpenTelemetry）、密钥托管
+Next.js 16 · TypeScript · Tailwind · PostgreSQL + Drizzle（可选）· Stripe · AIGC 网关
